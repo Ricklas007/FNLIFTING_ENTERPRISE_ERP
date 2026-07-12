@@ -1,0 +1,23 @@
+{
+  "appId": "com.fnlifting.enterprise.erp",
+  "appName": "FNLIFTING ENTERPRISE ERP",
+  "webDir": "frontend/dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 3000,
+      "launchAutoHide": true,
+      "backgroundColor": "#020817",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": true,
+      "androidSpinnerStyle": "large",
+      "spinnerColor": "#1c8fff",
+      "splashFullScreen": true,
+      "splashImmersive": true
+    }
+  }
+}

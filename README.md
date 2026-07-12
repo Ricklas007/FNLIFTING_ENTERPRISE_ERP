@@ -11,6 +11,7 @@ Documentação enterprise:
 - `docs/PHASE_12_EXECUTIVE_SAAS.md`
 - `docs/GAP_AUDIT_PHASES_8_12.md`
 - `docs/BROWSER_VALIDATION_PHASES_8_12.md`
+- `docs/DESKTOP_MOBILE_BUILD.md`
 - `docs/CI_CD.md`
 - `docs/SAAS_READY.md`
 - `docs/SECURITY_ENTERPRISE.md`
@@ -102,11 +103,51 @@ O backup inicial de demonstração usa a palavra-passe `DemoBackup@2026`. Crie b
 - scripts de produção para preflight, migração e arranque local;
 - hardening de cabeçalhos HTTP, hosts permitidos e configuração por ambiente.
 
+## App Desktop Windows
+
+A aplicacao desktop foi adicionada com Electron e `electron-builder`, mantendo o backend FastAPI local e o frontend React em modo producao.
+
+Comandos principais na raiz do projeto:
+
+```powershell
+npm install
+npm run desktop:build
+npm run desktop:pack
+npm run desktop:dist
+npm run app:start
+```
+
+Fluxo esperado:
+
+1. splash com o logotipo FNLIFTING;
+2. arranque local oculto do backend;
+3. espera por `/ready`;
+4. abertura do frontend React em producao;
+5. ecran de erro com retry/logs/fechar se o backend nao iniciar.
+
+O instalador Windows NSIS e gerado em `release/` quando o ambiente consegue descarregar/usar o binario do Electron. Consulte `docs/DESKTOP_MOBILE_BUILD.md` para validacoes, limitacoes do ambiente atual e troubleshooting.
+
+## App Mobile / PWA / Android
+
+O frontend foi preparado como PWA instalavel e sincronizavel com Capacitor Android.
+
+Comandos principais na raiz do projeto:
+
+```powershell
+npm run mobile:sync
+npm run android:open
+npm run android:build
+```
+
+O projeto Android fica em `android/`, com `appId` `com.fnlifting.enterprise.erp` e nome `FNLIFTING ENTERPRISE ERP`. O comando `mobile:sync` recompila o frontend e copia os assets web para o projeto nativo.
+
 ## Estrutura
 
 ```text
 backend/   FastAPI, SQLAlchemy, autenticação, RBAC, modelos, seed e testes
 frontend/  React, TypeScript, TailwindCSS, Lucide e Recharts
+desktop/   Electron, splash, arranque local do backend e empacotamento Windows
+android/   projeto Capacitor Android
 docs/      arquitetura, API, base de dados, sync e implantação
 scripts/   instalação e arranque local
 ```

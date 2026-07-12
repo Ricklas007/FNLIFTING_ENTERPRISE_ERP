@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FNLIFTING ENTERPRISE ERP</string>
+    <string name="title_activity_main">FNLIFTING ENTERPRISE ERP</string>
+    <string name="package_name">com.fnlifting.enterprise.erp</string>
+    <string name="custom_url_scheme">com.fnlifting.enterprise.erp</string>
+</resources>

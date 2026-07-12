@@ -1,0 +1,81 @@
+{
+  "name": "fnlifting-enterprise-erp",
+  "version": "0.12.0",
+  "private": true,
+  "description": "FNLIFTING Enterprise ERP desktop and mobile packaging",
+  "main": "desktop/main.js",
+  "author": "FNLIFTING",
+  "scripts": {
+    "build": "npm --prefix frontend run build",
+    "desktop:dev": "npm run build && electron . --dev",
+    "desktop:build": "npm run build && node desktop/validate-desktop.js",
+    "desktop:pack": "npm run build && electron-builder --dir",
+    "desktop:dist": "npm run build && electron-builder --win nsis",
+    "app:start": "npm run desktop:dev",
+    "mobile:init": "npm run build && cap add android",
+    "mobile:sync": "npm run build && cap sync android",
+    "android:open": "cap open android",
+    "android:build": "npm run mobile:sync && cd android && gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.4.3"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/cli": "^7.4.3",
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.fnlifting.enterprise.erp",
+    "productName": "FNLIFTING ENTERPRISE ERP",
+    "copyright": "Copyright © 2026 FNLIFTING",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "frontend/dist",
+        "to": "frontend/dist"
+      },
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": [
+          "app/**",
+          "alembic/**",
+          "tools/**",
+          "seed.py",
+          "alembic.ini",
+          "requirements.txt",
+          "main.py"
+        ]
+      },
+      {
+        "from": "backend/.venv",
+        "to": "backend/.venv",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "desktop/assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "FNLIFTING ENTERPRISE ERP",
+      "artifactName": "FNLIFTING-ENTERPRISE-ERP-Setup-${version}.${ext}"
+    }
+  }
+}

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-AO">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'unsafe-inline' 'self'; script-src 'unsafe-inline' 'self';">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Erro · FNLIFTING ENTERPRISE ERP</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, Segoe UI, Arial, sans-serif; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        color: #eaf4ff;
+        background: radial-gradient(circle at top, rgba(29, 127, 255, .28), transparent 38%), linear-gradient(145deg, #020817, #06142d);
+      }
+      main {
+        width: min(640px, calc(100vw - 48px));
+        padding: 34px;
+        border: 1px solid rgba(255, 110, 125, .26);
+        border-radius: 24px;
+        background: rgba(5, 16, 36, .9);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, .48);
+      }
+      img { width: 220px; display: block; margin-bottom: 22px; filter: drop-shadow(0 0 24px rgba(33, 144, 255, .36)); }
+      h1 { margin: 0; font-size: 24px; }
+      p { color: #8ca6c2; line-height: 1.6; }
+      code {
+        display: block;
+        max-height: 120px;
+        overflow: auto;
+        padding: 12px;
+        border: 1px solid rgba(255, 124, 138, .18);
+        border-radius: 12px;
+        color: #ffb8c0;
+        background: rgba(95, 21, 34, .18);
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+      footer { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+      button {
+        min-height: 42px;
+        padding: 0 16px;
+        border: 1px solid rgba(90, 160, 235, .25);
+        border-radius: 12px;
+        color: #ddecff;
+        background: rgba(16, 86, 172, .2);
+        font-weight: 700;
+      }
+      button.primary { border-color: #168ff9; background: linear-gradient(120deg, #0d67db, #138ff6); }
+      button.danger { border-color: rgba(255, 96, 112, .32); background: rgba(131, 24, 40, .22); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="./assets/splash-logo.png" alt="FNLIFTING">
+      <h1>Não foi possível iniciar o sistema</h1>
+      <p>O FNLIFTING ENTERPRISE ERP tentou iniciar o backend local e a interface, mas encontrou um problema. Pode tentar novamente, abrir a pasta de logs ou fechar o sistema.</p>
+      <code id="error">A carregar detalhe do erro...</code>
+      <footer>
+        <button class="primary" id="retry">Tentar novamente</button>
+        <button id="logs">Abrir logs</button>
+        <button class="danger" id="close">Fechar sistema</button>
+      </footer>
+    </main>
+    <script>
+      window.fnliftingDesktop.info().then((info) => {
+        document.getElementById('error').textContent = info.error || 'Erro não especificado. Verifique os logs locais.'
+      })
+      document.getElementById('retry').addEventListener('click', () => window.fnliftingDesktop.retry())
+      document.getElementById('logs').addEventListener('click', () => window.fnliftingDesktop.openLogs())
+      document.getElementById('close').addEventListener('click', () => window.fnliftingDesktop.close())
+    </script>
+  </body>
+</html>

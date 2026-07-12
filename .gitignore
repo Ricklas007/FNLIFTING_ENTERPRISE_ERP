@@ -35,8 +35,14 @@ secrets/
 backend/server*.log
 *.log
 node_modules/
+dist/
+release/
+out/
 frontend/node_modules/
 frontend/dist/
+android/app/build/
+android/build/
+android/.gradle/
 frontend/.env
 frontend/.env.local
 frontend/.env.production.local
