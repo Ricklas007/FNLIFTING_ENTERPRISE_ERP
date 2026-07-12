@@ -1,0 +1,61 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      APP_NAME: FNLIFTING Enterprise ERP
+      APP_VERSION: 0.12.0
+      ENVIRONMENT: production
+      DEBUG: "false"
+      AUTO_CREATE_SCHEMA: "false"
+      SECURITY_HEADERS_ENABLED: "true"
+      SECRET_KEY: ${SECRET_KEY:?Defina SECRET_KEY com pelo menos 32 caracteres}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/fnlifting.db}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-backend,localhost,127.0.0.1}
+      SYNC_REMOTE_URL: ${SYNC_REMOTE_URL:-}
+      WORKERS: ${BACKEND_WORKERS:-2}
+    volumes:
+      - fnlifting_data:/app/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fnlifting}
+      POSTGRES_USER: ${POSTGRES_USER:-fnlifting}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-postgres-local-only}
+    volumes:
+      - fnlifting_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-fnlifting} -d $${POSTGRES_DB:-fnlifting}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /api/v1
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    restart: unless-stopped
+
+volumes:
+  fnlifting_data:
+  fnlifting_pgdata:
