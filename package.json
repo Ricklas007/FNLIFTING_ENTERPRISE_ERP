@@ -22,7 +22,8 @@
     "mobile:init": "npm run build && cap add android",
     "mobile:sync": "npm run build && cap sync android",
     "android:open": "cap open android",
-    "android:build": "npm run mobile:sync && cd android && gradlew assembleDebug"
+    "android:build": "powershell -ExecutionPolicy Bypass -File scripts/build-android.ps1",
+    "android:build:portable": "powershell -ExecutionPolicy Bypass -File scripts/build-android.ps1 -InstallPortableJdk"
   },
   "dependencies": {
     "@capacitor/core": "^7.4.3"

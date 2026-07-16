@@ -65,6 +65,7 @@ npm run mobile:init
 npm run mobile:sync
 npm run android:open
 npm run android:build
+npm run android:build:portable
 ```
 
 ## Comandos executados nesta maquina
@@ -94,7 +95,8 @@ npm run android:build
 | Smoke instalado 0.12.1 | passou | 3 ciclos com executavel instalado em `%LOCALAPPDATA%\Programs`. |
 | Smoke com `userData` real | passou | Migration idempotente, backup pre-migration e `DESKTOP_READY`. |
 | `backend/.venv/Scripts/python.exe -m pytest -q` | passou | 23 testes passaram. |
-| `npm run android:build` | bloqueado por ambiente | `JAVA_HOME`/Java nao configurado. |
+| `npm run android:build` | depende do ambiente | Usa `JAVA_HOME`, `javac` no PATH, Android Studio JBR ou JDK local em `.runtime/android-jdk`. |
+| `npm run android:build:portable` | disponivel | Baixa/retoma JDK 17 para `.runtime/android-jdk` e executa `mobile:sync` + Gradle sem instalacao global de Java. |
 
 ## Como gerar o instalador Windows
 
@@ -133,6 +135,15 @@ Para build via Gradle:
 ```powershell
 npm run android:build
 ```
+
+Se a maquina nao tiver Java/JDK configurado, use o modo portatil:
+
+```powershell
+npm run android:build:portable
+```
+
+Esse comando descarrega um JDK 17 para `.runtime/android-jdk` e define `JAVA_HOME` apenas durante o build. A pasta `.runtime` fica ignorada pelo Git.
+Se a ligacao estiver lenta e o download nao terminar, volte a executar o mesmo comando; o arquivo parcial em `.runtime/downloads` e retomado automaticamente.
 
 Se `android:open` indicar que o Android Studio nao foi encontrado, defina:
 
