@@ -10,7 +10,22 @@ from urllib.parse import urlsplit, urlunsplit
 from sqlalchemy import func, inspect, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.core.config import DATA_DIR, settings
+from app.core.config import (
+    ATTACHMENT_DIR,
+    BACKUP_DIR,
+    CERTIFICATE_DIR,
+    DATA_DIR,
+    EXPORT_DIR,
+    INVOICE_DIR,
+    LOG_DIR,
+    MAP_CACHE_DIR,
+    MAP_DIR,
+    RECEIPT_DIR,
+    REPORT_DIR,
+    TEMP_DIR,
+    UPLOAD_DIR,
+    settings,
+)
 from app.database.base import Base
 from app.database.session import SessionLocal, engine
 from app.models import BackupRecord, Company, SyncQueue, User
@@ -162,11 +177,18 @@ def _database_checks() -> list[dict]:
 def _data_directory_checks() -> list[dict]:
     required = [
         DATA_DIR,
-        DATA_DIR / "backups",
-        DATA_DIR / "certificates",
-        DATA_DIR / "documents",
-        DATA_DIR / "financial",
-        DATA_DIR / "signatures",
+        UPLOAD_DIR,
+        CERTIFICATE_DIR,
+        REPORT_DIR,
+        INVOICE_DIR,
+        RECEIPT_DIR,
+        BACKUP_DIR,
+        LOG_DIR,
+        EXPORT_DIR,
+        MAP_DIR,
+        MAP_CACHE_DIR,
+        TEMP_DIR,
+        ATTACHMENT_DIR,
     ]
     missing = [path for path in required if not path.exists()]
     if missing:

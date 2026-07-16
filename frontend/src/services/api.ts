@@ -11,7 +11,28 @@ import type {
   ComplianceItem, LicenseStatus,
 } from '@/types'
 
+declare global {
+  interface Window {
+    fnliftingDesktop?: {
+      getApiBaseUrl?: () => Promise<string>
+    }
+  }
+}
+
 const API_URL = import.meta.env.VITE_API_URL ?? '/api/v1'
+let runtimeApiUrl: string | null = null
+
+if (typeof window !== 'undefined' && window.fnliftingDesktop?.getApiBaseUrl) {
+  void window.fnliftingDesktop.getApiBaseUrl().then((value) => {
+    runtimeApiUrl = value || null
+  }).catch(() => {
+    runtimeApiUrl = null
+  })
+}
+
+function apiUrl(path: string): string {
+  return `${runtimeApiUrl ?? API_URL}${path}`
+}
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
@@ -53,7 +74,7 @@ async function request<T>(path: string, options: RequestInit = {}, authenticated
   }
   let response: Response
   try {
-    response = await fetch(`${API_URL}${path}`, { ...options, headers })
+    response = await fetch(apiUrl(path), { ...options, headers })
   } catch {
     throw new ApiError('Não foi possível ligar ao servidor local. Confirme que o backend está em execução.', 0)
   }
@@ -71,7 +92,7 @@ async function download(path: string, filename: string) {
   const headers = new Headers()
   const token = tokenStore.access()
   if (token) headers.set('Authorization', `Bearer ${token}`)
-  const response = await fetch(`${API_URL}${path}`, { headers })
+  const response = await fetch(apiUrl(path), { headers })
   if (!response.ok) {
     const payload = await response.json().catch(() => null)
     throw new ApiError(payload?.detail || 'Não foi possível descarregar o documento.', response.status)
@@ -87,7 +108,7 @@ async function preview(path: string) {
   const headers = new Headers()
   const token = tokenStore.access()
   if (token) headers.set('Authorization', `Bearer ${token}`)
-  const response = await fetch(`${API_URL}${path}`, { headers })
+  const response = await fetch(apiUrl(path), { headers })
   if (!response.ok) {
     const payload = await response.json().catch(() => null)
     throw new ApiError(payload?.detail || 'Não foi possível pré-visualizar o documento.', response.status)

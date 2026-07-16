@@ -2,7 +2,7 @@
 <html lang="pt-AO">
   <head>
     <meta charset="utf-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'unsafe-inline' 'self'; script-src 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; style-src 'unsafe-inline' 'self'; script-src 'unsafe-inline' 'self';">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FNLIFTING ENTERPRISE ERP</title>
     <style>
@@ -84,8 +84,14 @@
     <main>
       <img src="./assets/splash-logo.png" alt="FNLIFTING">
       <h1>FNLIFTING ENTERPRISE ERP</h1>
-      <p>A preparar backend local, segurança e interface empresarial...</p>
+      <p id="startup-status">A preparar backend local, segurança e interface empresarial...</p>
       <div class="loader" aria-label="Carregando"></div>
     </main>
+    <script>
+      window.fnliftingDesktop?.onProgress?.((message) => {
+        const target = document.getElementById('startup-status')
+        if (target) target.textContent = message
+      })
+    </script>
   </body>
 </html>

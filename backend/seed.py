@@ -8,6 +8,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
+from app.core.config import UPLOAD_DIR
 from app.core.security import hash_password
 from app.database.base import Base
 from app.database.session import SessionLocal, engine
@@ -668,7 +669,7 @@ def seed_database(reset: bool = False) -> None:
             reason="Afetação ao departamento de inspeção.",
         ))
 
-        document_dir = Path(__file__).resolve().parent / "data" / "documents" / "seed"
+        document_dir = UPLOAD_DIR / "documents" / "seed"
         document_dir.mkdir(parents=True, exist_ok=True)
         for index, (title, category) in enumerate([
             ("Manual de Segurança Operacional", "HSE"),

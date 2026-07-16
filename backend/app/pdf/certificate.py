@@ -10,11 +10,10 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Paragraph
 
-from app.core.config import BACKEND_DIR
+from app.core.config import BACKEND_DIR, CERTIFICATE_DIR
 from app.models import Certificate, TechnicalSignatory
 
 
-CERTIFICATE_DIR = BACKEND_DIR / "data" / "certificates"
 CERTIFICATE_DIR.mkdir(parents=True, exist_ok=True)
 LOGO_PATH = BACKEND_DIR / "app" / "pdf" / "assets" / "fnlifting-certificate-logo.png"
 

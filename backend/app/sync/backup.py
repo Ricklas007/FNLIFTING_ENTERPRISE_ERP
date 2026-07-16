@@ -17,12 +17,11 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.config import DATA_DIR, settings
+from app.core.config import BACKUP_DIR, DATA_DIR, settings
 from app.database.session import engine
 from app.models import BackupRecord
 
 
-BACKUP_DIR = DATA_DIR / "backups"
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 MAGIC = b"FNLIFTING-BACKUP-V1\n"
 INCLUDED_DIRS = ("certificates", "documents", "financial", "signatures")

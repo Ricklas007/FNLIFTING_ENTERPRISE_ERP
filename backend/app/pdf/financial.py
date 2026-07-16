@@ -6,12 +6,12 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Table, TableStyle
 
-from app.core.config import BACKEND_DIR
+from app.core.config import BACKEND_DIR, INVOICE_DIR, RECEIPT_DIR
 from app.models import Invoice, Receipt
 
 
-FINANCE_DIR = BACKEND_DIR / "data" / "financial"
-FINANCE_DIR.mkdir(parents=True, exist_ok=True)
+INVOICE_DIR.mkdir(parents=True, exist_ok=True)
+RECEIPT_DIR.mkdir(parents=True, exist_ok=True)
 LOGO = BACKEND_DIR / "app" / "pdf" / "assets" / "fnlifting-certificate-logo.png"
 NAVY = colors.HexColor("#08274A")
 BLUE = colors.HexColor("#087EFF")
@@ -36,7 +36,7 @@ def _header(canvas: Canvas, title: str, number: str) -> None:
 
 
 def generate_invoice_pdf(invoice: Invoice) -> Path:
-    output = FINANCE_DIR / f"{invoice.invoice_no}.pdf"
+    output = INVOICE_DIR / f"{invoice.invoice_no}.pdf"
     canvas = Canvas(str(output), pagesize=A4, pageCompression=1)
     width, height = A4
     _header(canvas, "FATURA", invoice.invoice_no)
@@ -80,7 +80,7 @@ def generate_invoice_pdf(invoice: Invoice) -> Path:
 
 
 def generate_receipt_pdf(receipt: Receipt) -> Path:
-    output = FINANCE_DIR / f"{receipt.receipt_no}.pdf"
+    output = RECEIPT_DIR / f"{receipt.receipt_no}.pdf"
     canvas = Canvas(str(output), pagesize=A4, pageCompression=1)
     width, height = A4
     _header(canvas, "RECIBO", receipt.receipt_no)

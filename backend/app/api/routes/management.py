@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import require_permission
-from app.core.config import BACKEND_DIR
+from app.core.config import UPLOAD_DIR
 from app.database.session import get_db
 from app.models import (
     Asset, AssetMaintenance, AssetTransfer, AuditLog, Client, Department, Document,
@@ -31,7 +31,7 @@ from app.schemas.management import (
 
 
 router = APIRouter(prefix="/management", tags=["Património, Financeiro, Documentos e Auditoria"])
-DOCUMENT_DIR = BACKEND_DIR / "data" / "documents"
+DOCUMENT_DIR = UPLOAD_DIR / "documents"
 DOCUMENT_DIR.mkdir(parents=True, exist_ok=True)
 
 

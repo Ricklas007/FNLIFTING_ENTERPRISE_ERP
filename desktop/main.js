@@ -1,148 +1,41 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron')
-const crypto = require('crypto')
 const fs = require('fs')
 const http = require('http')
 const path = require('path')
-const { spawn } = require('child_process')
+const { BackendManager } = require('./runtime/backend')
+const { migrateLegacyDatabase } = require('./runtime/legacyMigration')
+const { LogManager } = require('./runtime/logs')
+const { choosePort } = require('./runtime/ports')
+const { createRuntimePaths, frontendDistDir, rootDir } = require('./runtime/paths')
 
 const APP_NAME = 'FNLIFTING ENTERPRISE ERP'
-const BACKEND_PORT = Number(process.env.FNLIFTING_BACKEND_PORT || 18200)
-const FRONTEND_PORT = Number(process.env.FNLIFTING_FRONTEND_PORT || 18280)
 const MIN_SPLASH_MS = 2500
 
-let backendProcess = null
+let runtimePaths = null
+let logManager = null
+let backendManager = null
 let staticServer = null
 let splashWindow = null
 let mainWindow = null
 let errorWindow = null
 let lastStartupError = null
 let startupInProgress = false
-let logDir = null
-let backendLogFile = null
-let electronLogFile = null
+let backendPort = null
+let frontendPort = null
 
-function rootDir() {
-  return app.isPackaged ? process.resourcesPath : path.resolve(__dirname, '..')
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
 }
 
-function frontendDistDir() {
-  return path.join(rootDir(), 'frontend', 'dist')
-}
-
-function backendDir() {
-  return path.join(rootDir(), 'backend')
-}
-
-function userDataDir() {
-  return app.getPath('userData')
-}
-
-function ensureRuntimeDirs() {
-  const base = userDataDir()
-  logDir = path.join(base, 'logs')
-  backendLogFile = path.join(logDir, 'backend.log')
-  electronLogFile = path.join(logDir, 'electron.log')
-  for (const dir of [base, logDir, path.join(base, 'data'), path.join(base, 'secrets')]) {
-    fs.mkdirSync(dir, { recursive: true })
+function progress(message) {
+  if (logManager) logManager.write('startup', message)
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents.send('desktop:progress', message)
   }
 }
 
-function appendElectronLog(message) {
-  if (!electronLogFile) return
-  fs.appendFileSync(electronLogFile, `[${new Date().toISOString()}] ${message}\n`, 'utf8')
-}
-
-function readOrCreateSecret(name) {
-  const file = path.join(userDataDir(), 'secrets', name)
-  if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim()
-  const value = crypto.randomBytes(48).toString('hex')
-  fs.writeFileSync(file, value, { encoding: 'utf8', mode: 0o600 })
-  return value
-}
-
-function backendEnvironment() {
-  const dataDir = path.join(userDataDir(), 'data')
-  return {
-    ...process.env,
-    APP_NAME,
-    APP_VERSION: app.getVersion(),
-    ENVIRONMENT: 'desktop',
-    DEBUG: 'false',
-    AUTO_CREATE_SCHEMA: 'true',
-    SECURITY_HEADERS_ENABLED: 'true',
-    DATABASE_URL: `sqlite:///${path.join(dataDir, 'fnlifting.db').replace(/\\/g, '/')}`,
-    SECRET_KEY: readOrCreateSecret('secret.key'),
-    BACKUP_ENCRYPTION_KEY: readOrCreateSecret('backup.key'),
-    CORS_ORIGINS: `http://127.0.0.1:${FRONTEND_PORT},http://localhost:${FRONTEND_PORT}`,
-    ALLOWED_HOSTS: `127.0.0.1,localhost`,
-  }
-}
-
-function pythonCandidates() {
-  const backend = backendDir()
-  const explicit = process.env.FNLIFTING_PYTHON ? [{ command: process.env.FNLIFTING_PYTHON, prefix: [] }] : []
-  return [
-    ...explicit,
-    { command: path.join(backend, '.venv', 'Scripts', 'python.exe'), prefix: [] },
-    { command: path.join(backend, '.venv', 'bin', 'python'), prefix: [] },
-    { command: 'python', prefix: [] },
-    { command: 'py', prefix: ['-3'] },
-  ]
-}
-
-function spawnLogged(command, args, options = {}) {
-  const out = fs.openSync(backendLogFile, 'a')
-  const err = fs.openSync(backendLogFile, 'a')
-  return spawn(command, args, {
-    cwd: backendDir(),
-    env: backendEnvironment(),
-    windowsHide: true,
-    stdio: ['ignore', out, err],
-    ...options,
-  })
-}
-
-function runCommand(command, args, timeoutMs = 90000) {
-  return new Promise((resolve, reject) => {
-    appendElectronLog(`run: ${command} ${args.join(' ')}`)
-    const child = spawnLogged(command, args)
-    let settled = false
-    const timer = setTimeout(() => {
-      if (settled) return
-      settled = true
-      child.kill()
-      reject(new Error(`Tempo esgotado ao executar ${command} ${args.join(' ')}`))
-    }, timeoutMs)
-    child.on('error', (error) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      reject(error)
-    })
-    child.on('exit', (code) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      code === 0 ? resolve() : reject(new Error(`Comando falhou com código ${code}: ${command} ${args.join(' ')}`))
-    })
-  })
-}
-
-async function findPython() {
-  for (const candidate of pythonCandidates()) {
-    try {
-      if (candidate.command.includes(path.sep) && !fs.existsSync(candidate.command)) continue
-      await runCommand(candidate.command, [...candidate.prefix, '-c', 'import fastapi, uvicorn, sqlalchemy; print("backend-runtime-ok")'], 25000)
-      appendElectronLog(`python selected: ${candidate.command}`)
-      return candidate
-    } catch (error) {
-      appendElectronLog(`python candidate failed: ${candidate.command}: ${error.message}`)
-    }
-  }
-  throw new Error('Backend Python não encontrado ou dependências FastAPI/Uvicorn ausentes. Instale as dependências do backend ou defina FNLIFTING_PYTHON.')
-}
-
-function httpGetJson(url, timeoutMs = 2500) {
+function httpGet(url, timeoutMs = 2500) {
   return new Promise((resolve, reject) => {
     const request = http.get(url, { timeout: timeoutMs }, (response) => {
       const chunks = []
@@ -160,44 +53,17 @@ function httpGetJson(url, timeoutMs = 2500) {
   })
 }
 
-async function waitForBackend(timeoutMs = 90000) {
+async function waitForBackend(timeoutMs = 120000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
-      await httpGetJson(`http://127.0.0.1:${BACKEND_PORT}/ready`)
-      return true
+      await httpGet(`http://127.0.0.1:${backendPort}/ready`)
+      return
     } catch {
       await new Promise((resolve) => setTimeout(resolve, 750))
     }
   }
   throw new Error('O backend local não ficou pronto dentro do tempo esperado.')
-}
-
-async function startBackend() {
-  try {
-    await httpGetJson(`http://127.0.0.1:${BACKEND_PORT}/ready`, 1000)
-    appendElectronLog('backend already ready')
-    return
-  } catch {
-    // Start our own backend below.
-  }
-
-  const python = await findPython()
-  await runCommand(python.command, [...python.prefix, '-m', 'alembic', 'upgrade', 'head'], 120000)
-  await runCommand(python.command, [...python.prefix, 'seed.py'], 120000)
-  backendProcess = spawnLogged(python.command, [
-    ...python.prefix,
-    '-m',
-    'uvicorn',
-    'app.main:app',
-    '--host',
-    '127.0.0.1',
-    '--port',
-    String(BACKEND_PORT),
-  ])
-  backendProcess.on('exit', (code) => appendElectronLog(`backend exited with code ${code}`))
-  backendProcess.on('error', (error) => appendElectronLog(`backend process error: ${error.message}`))
-  await waitForBackend()
 }
 
 function contentType(filePath) {
@@ -218,13 +84,13 @@ function contentType(filePath) {
 function proxyToBackend(request, response) {
   const proxyRequest = http.request({
     hostname: '127.0.0.1',
-    port: BACKEND_PORT,
+    port: backendPort,
     method: request.method,
     path: request.url,
     headers: {
       ...request.headers,
-      host: `127.0.0.1:${BACKEND_PORT}`,
-      origin: `http://127.0.0.1:${FRONTEND_PORT}`,
+      host: `127.0.0.1:${backendPort}`,
+      origin: `http://127.0.0.1:${frontendPort}`,
     },
   }, (proxyResponse) => {
     response.writeHead(proxyResponse.statusCode || 502, proxyResponse.headers)
@@ -239,12 +105,12 @@ function proxyToBackend(request, response) {
 
 function startFrontendServer() {
   if (staticServer) return Promise.resolve()
-  const dist = frontendDistDir()
+  const dist = frontendDistDir(app)
   if (!fs.existsSync(path.join(dist, 'index.html'))) {
     throw new Error(`Frontend de produção não encontrado em ${dist}. Execute npm run build antes de abrir o app desktop.`)
   }
   staticServer = http.createServer((request, response) => {
-    const reqUrl = new URL(request.url || '/', `http://127.0.0.1:${FRONTEND_PORT}`)
+    const reqUrl = new URL(request.url || '/', `http://127.0.0.1:${frontendPort}`)
     if (reqUrl.pathname.startsWith('/api/') || reqUrl.pathname === '/ready' || reqUrl.pathname === '/health') {
       proxyToBackend(request, response)
       return
@@ -252,21 +118,39 @@ function startFrontendServer() {
     const decoded = decodeURIComponent(reqUrl.pathname)
     const safePath = path.normalize(decoded).replace(/^(\.\.[/\\])+/, '')
     let filePath = path.join(dist, safePath === '/' ? 'index.html' : safePath)
-    if (!filePath.startsWith(dist) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    const resolvedDist = path.resolve(dist)
+    const resolvedFile = path.resolve(filePath)
+    if (!resolvedFile.startsWith(resolvedDist) || !fs.existsSync(resolvedFile) || fs.statSync(resolvedFile).isDirectory()) {
       filePath = path.join(dist, 'index.html')
     }
     response.writeHead(200, {
       'Content-Type': contentType(filePath),
       'Cache-Control': filePath.endsWith('index.html') ? 'no-cache' : 'public, max-age=31536000, immutable',
+      'Content-Security-Policy': `default-src 'self'; connect-src 'self' http://127.0.0.1:${frontendPort} http://127.0.0.1:${backendPort}; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; frame-ancestors 'none'`,
     })
     fs.createReadStream(filePath).pipe(response)
   })
   return new Promise((resolve, reject) => {
     staticServer.once('error', reject)
-    staticServer.listen(FRONTEND_PORT, '127.0.0.1', () => {
-      appendElectronLog(`frontend server ready: ${FRONTEND_PORT}`)
+    staticServer.listen(frontendPort, '127.0.0.1', () => {
+      logManager.write('desktop', `frontend server ready on ${frontendPort}`)
       resolve()
     })
+  })
+}
+
+function hardenWindow(window) {
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) return { action: 'deny' }
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  window.webContents.on('will-navigate', (event, url) => {
+    const allowed = `http://127.0.0.1:${frontendPort}`
+    if (!url.startsWith(allowed)) {
+      event.preventDefault()
+      shell.openExternal(url).catch(() => undefined)
+    }
   })
 }
 
@@ -279,6 +163,7 @@ function createSplashWindow() {
     show: true,
     backgroundColor: '#020817',
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -305,10 +190,15 @@ function createMainWindow() {
     },
   })
   mainWindow.removeMenu()
-  mainWindow.loadURL(`http://127.0.0.1:${FRONTEND_PORT}`)
+  hardenWindow(mainWindow)
+  mainWindow.loadURL(`http://127.0.0.1:${frontendPort}`)
   mainWindow.once('ready-to-show', () => {
     if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close()
     mainWindow.show()
+    logManager.write('startup', 'DESKTOP_READY')
+    if (process.env.FNLIFTING_DESKTOP_SMOKE_TEST === '1') {
+      setTimeout(() => app.quit(), Number(process.env.FNLIFTING_DESKTOP_SMOKE_CLOSE_MS || 3500))
+    }
   })
 }
 
@@ -331,27 +221,45 @@ function createErrorWindow(error) {
     },
   })
   errorWindow.removeMenu()
+  hardenWindow(errorWindow)
   errorWindow.loadFile(path.join(__dirname, 'error.html'))
+}
+
+async function prepareRuntime() {
+  runtimePaths = createRuntimePaths(app)
+  logManager = new LogManager(runtimePaths)
+  logManager.write('startup', `boot root=${rootDir(app)} userData=${runtimePaths.base}`)
+  backendPort = await choosePort(process.env.FNLIFTING_BACKEND_PORT || 18200, 18200, 18350)
+  frontendPort = await choosePort(process.env.FNLIFTING_FRONTEND_PORT || 18280, 18280, 18450)
+  backendManager = new BackendManager({ app, paths: runtimePaths, logManager, backendPort, frontendPort })
 }
 
 async function bootApplication() {
   if (startupInProgress) return
   startupInProgress = true
   try {
-    ensureRuntimeDirs()
-    appendElectronLog('boot start')
-    createSplashWindow()
     const startedAt = Date.now()
-    await startBackend()
+    await prepareRuntime()
+    createSplashWindow()
+    progress('Preparando armazenamento local')
+    migrateLegacyDatabase({ app, runtimePaths, rootDir: rootDir(app), logManager })
+    progress('Validando configuração segura')
+    progress('Migrando base de dados')
+    await backendManager.migrateAndSeed()
+    progress('Iniciando serviços locais')
+    backendManager.startServe()
+    progress('Validando backend')
+    await waitForBackend()
+    progress('Carregando interface')
     await startFrontendServer()
     const elapsed = Date.now() - startedAt
     if (elapsed < MIN_SPLASH_MS) {
       await new Promise((resolve) => setTimeout(resolve, MIN_SPLASH_MS - elapsed))
     }
     createMainWindow()
-    appendElectronLog('boot success')
+    logManager.write('desktop', 'boot success')
   } catch (error) {
-    appendElectronLog(`boot failed: ${error.stack || error.message}`)
+    if (logManager) logManager.write('desktop', `boot failed: ${error.stack || error.message}`)
     createErrorWindow(error)
   } finally {
     startupInProgress = false
@@ -363,14 +271,7 @@ function stopChildren() {
     staticServer.close()
     staticServer = null
   }
-  if (backendProcess && backendProcess.pid) {
-    if (process.platform === 'win32') {
-      spawn('taskkill', ['/pid', String(backendProcess.pid), '/t', '/f'], { windowsHide: true })
-    } else {
-      backendProcess.kill('SIGTERM')
-    }
-  }
-  backendProcess = null
+  if (backendManager) backendManager.stop()
 }
 
 ipcMain.handle('desktop:retry', async () => {
@@ -381,8 +282,8 @@ ipcMain.handle('desktop:retry', async () => {
 })
 
 ipcMain.handle('desktop:openLogs', async () => {
-  ensureRuntimeDirs()
-  await shell.openPath(logDir)
+  if (!runtimePaths) runtimePaths = createRuntimePaths(app)
+  await shell.openPath(runtimePaths.logs)
   return true
 })
 
@@ -393,12 +294,22 @@ ipcMain.handle('desktop:close', () => {
 ipcMain.handle('desktop:info', () => ({
   appName: APP_NAME,
   version: app.getVersion(),
-  backendPort: BACKEND_PORT,
-  frontendPort: FRONTEND_PORT,
+  backendPort,
+  frontendPort,
+  apiBaseUrl: frontendPort ? `http://127.0.0.1:${frontendPort}/api/v1` : '/api/v1',
   error: lastStartupError ? String(lastStartupError.message || lastStartupError) : null,
-  logDir,
+  logDir: runtimePaths ? runtimePaths.logs : null,
+  dataDir: runtimePaths ? runtimePaths.data : null,
 }))
 
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
+  } else if (errorWindow) {
+    errorWindow.focus()
+  }
+})
 app.whenReady().then(bootApplication)
 app.on('before-quit', stopChildren)
 app.on('window-all-closed', () => {
@@ -406,4 +317,7 @@ app.on('window-all-closed', () => {
 })
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) bootApplication()
+})
+process.on('uncaughtException', (error) => {
+  if (logManager) logManager.write('desktop', `uncaughtException: ${error.stack || error.message}`)
 })

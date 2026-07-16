@@ -25,14 +25,21 @@ O trabalho foi feito sem alterar a base funcional das Fases 8-12. Esta camada ap
 - Configuracao Electron segura: `contextIsolation`, `nodeIntegration: false`, `sandbox` e preload minimo.
 - Encerramento do processo backend ao fechar a aplicacao.
 - Configuracao `electron-builder` com alvo NSIS.
+- Backend standalone `backend-dist/FNLiftingBackend/FNLiftingBackend.exe` via PyInstaller.
+- Pacote 0.12.1 sem `backend/.venv`, `.env`, banco de desenvolvimento, testes ou caches.
+- Dados mutaveis em `userData`, nao em `Program Files`.
 
 Scripts adicionados na raiz:
 
 ```powershell
 npm run desktop:dev
+npm run desktop:backend:build
+npm run desktop:backend:smoke
 npm run desktop:build
 npm run desktop:pack
+npm run desktop:smoke
 npm run desktop:dist
+npm run desktop:installed:smoke
 npm run app:start
 ```
 
@@ -78,7 +85,16 @@ npm run android:build
 | `backend/.venv/Scripts/python.exe -m alembic current` | passou | Banco em `20260712_0002 (head)`. |
 | `backend/.venv/Scripts/python.exe -m alembic heads` | passou | Head unico `20260712_0002 (head)`. |
 | `scripts/prod-preflight.ps1 -SkipTests -SkipFrontendBuild` | passou | Ready com 11 OK, 0 avisos e 0 falhas. |
-| `/ready` em backend temporario local | passou | `status=ready`, versao `0.12.0`, 11 OK, 0 avisos e 0 falhas. |
+| `/ready` em backend temporario local | passou | `status=ready`, versao `0.12.1`, 10 OK, 1 aviso de backup antigo no banco dev e 0 falhas. |
+| `npm run desktop:backend:smoke` | passou | Backend standalone: migrate, seed, serve e `/ready` em runtime temporario. |
+| `npm run desktop:pack` | passou | Gerou `release/win-unpacked` 0.12.1 com backend standalone. |
+| `npm run desktop:smoke` | passou | 3 ciclos de abertura/fecho/reabertura em `win-unpacked`. |
+| `npm run desktop:dist` | passou | Gerou `release/FNLIFTING-ENTERPRISE-ERP-Setup-0.12.1.exe`. |
+| Instalador 0.12.1 silencioso por utilizador | passou | Exit code 0; instalado em `%LOCALAPPDATA%\Programs`. |
+| Smoke instalado 0.12.1 | passou | 3 ciclos com executavel instalado em `%LOCALAPPDATA%\Programs`. |
+| Smoke com `userData` real | passou | Migration idempotente, backup pre-migration e `DESKTOP_READY`. |
+| `backend/.venv/Scripts/python.exe -m pytest -q` | passou | 23 testes passaram. |
+| `npm run android:build` | bloqueado por ambiente | `JAVA_HOME`/Java nao configurado. |
 
 ## Como gerar o instalador Windows
 
@@ -92,7 +108,7 @@ npm run desktop:dist
 Saida esperada:
 
 ```text
-release/FNLIFTING-ENTERPRISE-ERP-Setup-0.12.0.exe
+release/FNLIFTING-ENTERPRISE-ERP-Setup-0.12.1.exe
 ```
 
 Se o download do Electron falhar, tente configurar um mirror:
