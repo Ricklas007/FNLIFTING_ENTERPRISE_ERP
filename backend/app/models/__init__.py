@@ -38,6 +38,7 @@ from app.models.domain import (
     Truck,
 )
 from app.models.enterprise import (
+    AIAssistantSuggestion,
     AIProviderSetting,
     AttendanceRecord,
     AutomationRule,
@@ -58,6 +59,7 @@ from app.models.enterprise import (
     MFARecoveryCode,
     NotificationDelivery,
     OCRJob,
+    OrgPosition,
     PayrollItem,
     PayrollRun,
     SaaSLicense,
@@ -71,9 +73,9 @@ __all__ = [
     "Document", "DocumentVersion", "Driver", "Employee", "Equipment", "EquipmentType", "Expense", "FleetIncident",
     "FuelRecord", "GPSPosition", "Inspection", "InspectionChecklistItem", "InspectionPhoto", "Invoice", "InvoiceItem",
     "Notification", "Payment", "PerformanceReview", "Receipt", "Revenue", "SyncQueue", "SyncRun", "SystemSetting", "TechnicalSignatory", "Trip", "Truck",
-    "AIProviderSetting", "AttendanceRecord", "AutomationRule", "AutomationRun", "ComplianceRequirement", "CustomerMessage",
+    "AIAssistantSuggestion", "AIProviderSetting", "AttendanceRecord", "AutomationRule", "AutomationRun", "ComplianceRequirement", "CustomerMessage",
     "DeviceRegistration", "EnterpriseSyncEvent", "FleetCommand", "FleetAlert", "FleetAlertRule", "Geofence", "GeofenceEvent",
     "GPSTrackerDevice", "GPSIntegrationEvent", "LeaveRequest", "MFAChallenge",
-    "MFARecoveryCode", "NotificationDelivery", "OCRJob", "PayrollItem", "PayrollRun", "SaaSLicense", "SecurityEvent",
+    "MFARecoveryCode", "NotificationDelivery", "OCRJob", "OrgPosition", "PayrollItem", "PayrollRun", "SaaSLicense", "SecurityEvent",
     "UserMFAFactor",
 ]

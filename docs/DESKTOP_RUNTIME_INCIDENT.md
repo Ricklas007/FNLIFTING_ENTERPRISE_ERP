@@ -37,11 +37,11 @@ Evidencias nos logs reais:
 - Backup pre-migration criado antes de upgrade quando ja existe SQLite.
 - Smoke de tres arranques em `win-unpacked` passou.
 - Smoke de tres arranques na instalacao 0.12.1 em `%LOCALAPPDATA%\Programs` passou.
-- Smoke de tres arranques na instalacao all-users em `C:\Program Files\FNLIFTING ENTERPRISE ERP` passou apos reinstalar o 0.12.1.
+- A reinstalacao all-users em `C:\Program Files\FNLIFTING ENTERPRISE ERP` exige UAC/administrador e nao foi concluida neste ambiente sem elevacao; a instalacao por utilizador foi usada como mitigacao funcional.
 
 ## Nota sobre instalacao antiga
 
-A instalacao antiga em `C:\Program Files\FNLIFTING ENTERPRISE ERP` pode continuar fisicamente presente se instalada como administrador. Ela contem a `.venv` antiga. A instalacao por utilizador 0.12.1 validada fica em:
+A instalacao antiga em `C:\Program Files\FNLIFTING ENTERPRISE ERP` so deve ser atualizada executando o instalador 0.12.1 como Administrador. Quando nao houver elevacao, use a instalacao por utilizador 0.12.1 validada em:
 
 ```text
 %LOCALAPPDATA%\Programs\FNLIFTING ENTERPRISE ERP

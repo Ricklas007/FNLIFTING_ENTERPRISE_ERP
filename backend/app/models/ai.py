@@ -66,3 +66,21 @@ class AutomationRun(RecordMixin, Base):
     executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
 
     rule: Mapped[AutomationRule] = relationship(back_populates="runs")
+
+
+class AIAssistantSuggestion(RecordMixin, Base):
+    __tablename__ = "ai_assistant_suggestions"
+    __table_args__ = (UniqueConstraint("company_id", "source_type", "source_id", "title", name="uq_ai_suggestion_source_title"),)
+
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    module: Mapped[str] = mapped_column(String(60), index=True)
+    source_type: Mapped[str] = mapped_column(String(80), index=True)
+    source_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(220))
+    recommendation: Mapped[str] = mapped_column(Text)
+    rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    action_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    reviewed_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

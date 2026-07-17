@@ -145,6 +145,36 @@ Toda mutação ORM cria uma entrada em `sync_queue` dentro da mesma transação.
 
 `/ready` é destinado a Docker, balanceadores e monitores: só falhas críticas devolvem HTTP `503`. O painel autenticado `/api/v1/system/ops/readiness` expõe os detalhes para administradores, incluindo recomendações de correção para segredo JWT, debug, CORS, hosts permitidos, schema, migrações, backups e fila de sincronização.
 
+## Enterprise — Fases 8–12
+
+| Método | Endpoint | Permissão | Descrição |
+|---|---|---|---|
+| `GET` | `/api/v1/enterprise/overview` | Autenticado | Resumo de dispositivos, sessões, notificações e readiness enterprise |
+| `POST` | `/api/v1/enterprise/devices/register` | Autenticado | Regista dispositivo confiável |
+| `GET/DELETE` | `/api/v1/enterprise/sessions` / `/sessions/{id}` | Autenticado | Sessões revogáveis |
+| `POST` | `/api/v1/enterprise/security/mfa/setup` | Autenticado | Prepara MFA TOTP |
+| `POST` | `/api/v1/enterprise/security/mfa/confirm` | Autenticado | Confirma MFA e emite recovery codes |
+| `POST` | `/api/v1/enterprise/security/mfa/disable` | Autenticado | Desativa MFA do utilizador |
+| `GET/POST` | `/api/v1/enterprise/sync/status`, `/sync/push`, `/sync/pull` | Autenticado | Sync local/cloud-ready com conflitos |
+| `GET` | `/api/v1/enterprise/notifications` | Autenticado | Centro de notificações in-app |
+| `GET` | `/api/v1/enterprise/fleet/command-center` | `fleet.view` | Centro de comando logístico |
+| `GET` | `/api/v1/enterprise/fleet/compliance` | `fleet.view` | Compliance documental, tanques, reboques, manutenção e incidentes de frota |
+| `POST` | `/api/v1/enterprise/fleet/commands` | `fleet.manage` | Cria comando operacional |
+| `POST` | `/api/v1/enterprise/gps/ingest` | `fleet.manage` | Ingestão GPS legada autenticada |
+| `GET` | `/api/v1/enterprise/ai/providers` | `settings.manage` | Providers IA/OCR/regras |
+| `GET/POST` | `/api/v1/enterprise/ai/automation` / `/automation/rules` | `settings.manage` | Centro de automação e criação de regras |
+| `POST` | `/api/v1/enterprise/ai/ocr/jobs` | `operations.manage` | Cria job OCR local |
+| `GET/POST` | `/api/v1/enterprise/ai/assistant` / `/assistant/generate` | `operations.view` | Sugestões IA determinísticas a partir de OCR e regras |
+| `PATCH` | `/api/v1/enterprise/ai/assistant/{id}` | `operations.manage` | Aceita, edita ou descarta sugestão |
+| `GET` | `/api/v1/enterprise/hr/employee-portal` | `hr.view` | Portal do trabalhador |
+| `GET` | `/api/v1/enterprise/hr/org-chart` | `hr.view` | Organograma e posições reais |
+| `POST` | `/api/v1/enterprise/hr/positions` | `hr.manage` | Cria posição no organograma |
+| `POST` | `/api/v1/enterprise/hr/attendance` | `hr.manage` | Regista assiduidade |
+| `POST` | `/api/v1/enterprise/hr/leave-requests` | `hr.manage` | Regista pedido de férias/licença |
+| `POST` | `/api/v1/enterprise/hr/payroll-runs` | `hr.manage` | Processa payroll de período |
+| `GET/POST` | `/api/v1/enterprise/compliance` | Autenticado | Compliance executive/SaaS |
+| `GET/PATCH` | `/api/v1/enterprise/saas/license` | Autenticado | Licenciamento SaaS local |
+
 ## Login
 
 ```json

@@ -5,12 +5,12 @@ runtime imports remain maintainable while older imports from app.models keep
 working.
 """
 
-from app.models.ai import AIProviderSetting, AutomationRule, AutomationRun, OCRJob
+from app.models.ai import AIAssistantSuggestion, AIProviderSetting, AutomationRule, AutomationRun, OCRJob
 from app.models.compliance import ComplianceRequirement
 from app.models.fleet_enterprise import FleetCommand
 from app.models.fleet_tracking import FleetAlert, FleetAlertRule, Geofence, GeofenceEvent, GPSTrackerDevice
 from app.models.gps import GPSIntegrationEvent
-from app.models.hr_enterprise import AttendanceRecord, LeaveRequest
+from app.models.hr_enterprise import AttendanceRecord, LeaveRequest, OrgPosition
 from app.models.licensing import SaaSLicense
 from app.models.notifications import NotificationDelivery
 from app.models.payroll import PayrollItem, PayrollRun
@@ -19,6 +19,7 @@ from app.models.sync import EnterpriseSyncEvent
 from app.models.tenancy import CustomerMessage
 
 __all__ = [
+    "AIAssistantSuggestion",
     "AIProviderSetting",
     "AttendanceRecord",
     "AutomationRule",
@@ -39,6 +40,7 @@ __all__ = [
     "MFARecoveryCode",
     "NotificationDelivery",
     "OCRJob",
+    "OrgPosition",
     "PayrollItem",
     "PayrollRun",
     "SaaSLicense",

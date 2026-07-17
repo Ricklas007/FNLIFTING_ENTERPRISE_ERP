@@ -729,6 +729,36 @@ button:disabled { cursor: not-allowed; opacity: .62; }
   font-size: 9px;
 }
 
+.phase-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.phase-row-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  border: 1px solid rgba(82, 145, 210, .22);
+  border-radius: 8px;
+  background: rgba(6, 20, 43, .72);
+  color: #a9cfff;
+  padding: 0 9px;
+  font-size: 9px;
+}
+
+.phase-row-actions button:hover {
+  border-color: rgba(74, 158, 255, .46);
+  background: rgba(11, 40, 78, .8);
+}
+
+.phase-row-actions svg {
+  width: 13px;
+  height: 13px;
+}
+
 @media(max-width:900px) {
   .map-import-form {
     grid-template-columns: 1fr;

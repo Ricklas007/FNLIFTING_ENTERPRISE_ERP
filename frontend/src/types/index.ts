@@ -798,10 +798,47 @@ export interface FleetCommandCenter {
   gps_events: { id: string; provider: string; latitude?: number; longitude?: number; payload: Record<string, unknown>; status: string; created_at: string }[]
 }
 
+export interface FleetComplianceCenter {
+  summary: Record<string, number>
+  items: {
+    truck_id: string
+    plate: string
+    truck_type: string
+    is_tanker: boolean
+    is_trailer: boolean
+    tank_capacity_liters?: number
+    driver?: { id: string; name: string; license_category: string }
+    documents: { type: string; label: string; status: string; valid_until?: string; days_remaining?: number }[]
+    active_trip?: { id: string; trip_code: string; origin: string; destination: string; status: string }
+    open_incidents: number
+    fuel_liters_recorded: number
+    latest_gps?: { latitude: number; longitude: number; speed_kmh: number; recorded_at: string }
+    maintenance: { status: string; next_due?: string }
+  }[]
+}
+
 export interface AutomationCenter {
   rules: { id: string; code: string; name: string; module: string; trigger_event: string; condition: Record<string, unknown>; action: Record<string, unknown>; severity: string; status: string }[]
   ocr_jobs: { id: string; source_filename: string; provider: string; status: string; confidence?: number; created_at: string }[]
   runs: { id: string; rule_id: string; entity_type?: string; entity_id?: string; result: string; detail: Record<string, unknown>; executed_at: string }[]
+}
+
+export interface AIAssistantCenter {
+  summary: Record<string, number>
+  suggestions: {
+    id: string
+    module: string
+    source_type: string
+    source_id?: string
+    title: string
+    recommendation: string
+    rationale?: string
+    action: Record<string, unknown>
+    status: string
+    reviewed_at?: string
+    applied_at?: string
+    created_at: string
+  }[]
 }
 
 export interface EmployeePortal {
@@ -809,6 +846,22 @@ export interface EmployeePortal {
   attendance: { id: string; employee_id: string; work_date: string; status: string; approval_status: string; location?: string }[]
   leave_requests: { id: string; employee_id: string; leave_type: string; start_date: string; end_date: string; status: string }[]
   payroll_runs: { id: string; period: string; status: string; gross_total: number; net_total: number }[]
+}
+
+export interface OrgChart {
+  summary: Record<string, number>
+  positions: {
+    id: string
+    code: string
+    title: string
+    level: number
+    status: string
+    department?: { id: string; name: string; code: string }
+    employee?: { id: string; full_name: string; job_title: string }
+    supervisor_position_id?: string
+    children?: OrgChart['positions']
+  }[]
+  tree: OrgChart['positions']
 }
 
 export interface ExecutiveBI {

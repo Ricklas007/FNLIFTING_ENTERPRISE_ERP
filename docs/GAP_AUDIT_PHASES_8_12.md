@@ -22,9 +22,9 @@ Estados usados: `IMPLEMENTED_VALIDATED`, `IMPLEMENTED_NOT_VALIDATED`, `SIMULATED
 - `BACKUP_ENCRYPTION_KEY` suportado em config/compose sem exposição do valor.
 - Backup histórico com credencial comprometida foi marcado como histórico/não operacional.
 - Novo backup cifrado foi criado com chave local configurada.
-- Alembic: `20260712_0002 (head)` e um único head.
-- Preflight local: `ready`, 11 checks OK, 0 avisos, 0 falhas.
-- Readiness HTTP: `/ready` retornou 200 com `status=ready`.
+- Alembic: `20260717_0004 (head)` e um único head.
+- Preflight local: `ready`, 10 checks OK, 1 aviso de backup antigo, 0 falhas.
+- Readiness HTTP: `/ready` retornou 200 com `status=ready`, 10 OK, 1 aviso e 0 falhas.
 - Frontend: `npm run build` passou depois da modularização.
 - Backend: compileall passou.
 - Docker CLI não está instalado no ambiente local desta execução; validação real de `docker compose config/build` ficou bloqueada pelo ambiente.
@@ -43,17 +43,17 @@ Estados usados: `IMPLEMENTED_VALIDATED`, `IMPLEMENTED_NOT_VALIDATED`, `SIMULATED
 | 8 | Observabilidade | IMPLEMENTED_VALIDATED | `/ready`, preflight, headers `X-Request-ID` e `X-Process-Time-ms`, `test_observability_headers.py` | Métricas Prometheus/OpenTelemetry em ciclo futuro |
 | 8 | PostgreSQL | IMPLEMENTED_NOT_VALIDATED | `psycopg` em requirements; CI PostgreSQL adicionado; compose opcional com profile `postgres` | Validar com Docker/Postgres real fora deste ambiente |
 | 9 | Fleet command center | IMPLEMENTED_VALIDATED | `test_fleet_trips_gps.py`; HTTP 200 em `/enterprise/fleet/command-center` | UI visual em browser real |
-| 9 | GPS seguro/idempotente e alertas | IMPLEMENTED_VALIDATED | `test_fleet_trips_gps.py`; dedupe por `payload.event_id`; alerta para velocidade elevada | Device-token dedicado em ciclo futuro |
+| 9 | GPS seguro/idempotente e alertas | IMPLEMENTED_VALIDATED | `test_fleet_trips_gps.py`; `test_gps_geofences_replay.py`; device-token dedicado; dedupe por `event_id`; alerta para velocidade/geofence | Expandir export GPX/CSV/PDF em ciclo futuro |
 | 9 | Workflow viagem existente | IMPLEMENTED_VALIDATED | Testes herdados + `test_fleet_trips_gps.py` | Expandir POD/expense PDF em ciclo futuro |
-| 9 | Fleet docs/manutenção/tanks/trailers enterprise | FOUNDATION_ONLY | Modelos legados de frota/camião existem; command center cobre operação principal | Criar submódulos documentais avançados de frota |
+| 9 | Fleet docs/manutenção/tanks/trailers enterprise | IMPLEMENTED_VALIDATED | `/enterprise/fleet/compliance`; `test_fleet_trips_gps.py`; documentos, tanques, reboques, manutenção e incidentes calculados sobre dados reais | Evoluir anexo documental específico por camião/reboque |
 | 10 | AIProvider/OCRProvider | IMPLEMENTED_VALIDATED | `test_ai_ocr_rules.py`; OCR local com `review_required`; provider list | Integrar provider externo real quando credenciais existirem |
 | 10 | Rule engine | IMPLEMENTED_VALIDATED | `test_ai_ocr_rules.py`; regras persistidas e automation center | Expandir execução automática cross-workflow |
-| 10 | Assistentes IA | FOUNDATION_ONLY | Providers e OCR local existem; sem chat/assistant generativo | Implementar aceitar/editar/descartar sugestões |
+| 10 | Assistentes IA | IMPLEMENTED_VALIDATED | `/enterprise/ai/assistant`; `test_ai_ocr_rules.py`; sugestões persistidas geradas por OCR/regras com aceitar/editar/descartar | Ligar provider generativo externo quando houver credenciais |
 | 10 | Operational risk score | IMPLEMENTED_NOT_VALIDATED | `performance_service.py` determinístico criado | Integrar score ao BI/regras com teste dedicado |
 | 11 | Attendance/Leave | IMPLEMENTED_VALIDATED | `test_hr_workflows.py`; endpoints `/enterprise/hr/*` | Regras avançadas de overlap/saldos |
 | 11 | Payroll | IMPLEMENTED_VALIDATED | `test_payroll.py`; cálculo Decimal e bloqueio de duplicado/negativo | Aprovação final/payslip PDF em ciclo futuro |
 | 11 | Aprovação documental/relatórios/certificados | IMPLEMENTED_VALIDATED | Documentos têm preview, edição, review/approve/reject; relatórios têm revisão; certificados têm preview, edição draft e emissão controlada | Criar approval engine genérico reutilizável |
-| 11 | Organograma/posição/hierarquia | FOUNDATION_ONLY | `Department` e relações de trabalhadores existem | Criar `Position`/supervisor/organograma |
+| 11 | Organograma/posição/hierarquia | IMPLEMENTED_VALIDATED | `org_positions`; `/enterprise/hr/org-chart`; `test_hr_workflows.py`; posições geradas a partir de trabalhadores/departamentos | Criar editor visual drag-and-drop em ciclo futuro |
 | 12 | Executive BI com dados reais | IMPLEMENTED_VALIDATED | `test_analytics_compliance.py`; HTTP 200 em `/enterprise/bi/executive` | Filtros avançados e export PDF executivo |
 | 12 | Compliance | IMPLEMENTED_VALIDATED | `test_analytics_compliance.py`; CRUD básico e risco | Evidências anexas/workflow avançado |
 | 12 | Portal cliente premium/mensagens | IMPLEMENTED_VALIDATED | `test_customer_portal.py`; isolamento de mensagens | Anexos/work orders premium |
@@ -61,7 +61,7 @@ Estados usados: `IMPLEMENTED_VALIDATED`, `IMPLEMENTED_NOT_VALIDATED`, `SIMULATED
 | 12 | Tenant isolation/licensing/branding | IMPLEMENTED_VALIDATED | `test_tenant_isolation.py`; `test_customer_portal.py`; license endpoint | Branding por tenant/provisioning automatizado |
 | 8–12 | Modularização backend | IMPLEMENTED_VALIDATED | Router agregador + routers/services/models por domínio | Continuar refinando domínios grandes legados |
 | 8–12 | Modularização frontend | IMPLEMENTED_VALIDATED | `frontend/src/features/enterprise/*`; `npm run build` passou | Evoluir hooks por domínio quando as páginas crescerem |
-| 8–12 | Testes específicos | IMPLEMENTED_VALIDATED | 23 testes backend após hardening, incluindo domínios 8–12 | Manter idempotência contra base persistente |
+| 8–12 | Testes específicos | IMPLEMENTED_VALIDATED | 27+ testes backend após hardening/GPS/completação, incluindo domínios 8–12 | Manter idempotência contra base persistente |
 | 8–12 | Browser desktop/mobile | BLOCKED_BY_ENVIRONMENT | Browser integrado falhou ao anexar; Playwright local ausente; HTTP/API passou | Reexecutar validação visual num ambiente com browser funcional |
 | 8–12 | Docker/CI | IMPLEMENTED_NOT_VALIDATED | CI SQLite + job PostgreSQL; compose com profile postgres | Validar `docker compose config/build` quando Docker estiver instalado |
 

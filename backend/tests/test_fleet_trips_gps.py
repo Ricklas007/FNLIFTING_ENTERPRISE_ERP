@@ -19,4 +19,10 @@ def test_gps_ingest_invalid_duplicate_and_speeding_alert():
     assert first.json()["id"] == second.json()["id"]
     updated = api.get("/api/v1/enterprise/fleet/command-center", headers=headers)
     assert any(item["command_type"] == "speeding_alert" for item in updated.json()["commands"])
+    compliance = api.get("/api/v1/enterprise/fleet/compliance", headers=headers)
+    assert compliance.status_code == 200, compliance.text
+    payload = compliance.json()
+    assert payload["summary"]["trucks"] >= 1
+    assert payload["items"][0]["documents"]
+    assert {"insurance", "vehicle_license", "technical_inspection", "driver_license"}.issubset({item["type"] for item in payload["items"][0]["documents"]})
     api.close()

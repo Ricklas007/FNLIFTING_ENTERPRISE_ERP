@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
@@ -33,3 +33,17 @@ class LeaveRequest(RecordMixin, Base):
     status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
     approved_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class OrgPosition(RecordMixin, Base):
+    __tablename__ = "org_positions"
+    __table_args__ = (UniqueConstraint("company_id", "code", name="uq_org_position_company_code"),)
+
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    department_id: Mapped[str] = mapped_column(ForeignKey("departments.id"), index=True)
+    employee_id: Mapped[str | None] = mapped_column(ForeignKey("employees.id"), nullable=True, index=True)
+    supervisor_position_id: Mapped[str | None] = mapped_column(ForeignKey("org_positions.id"), nullable=True, index=True)
+    code: Mapped[str] = mapped_column(String(60), index=True)
+    title: Mapped[str] = mapped_column(String(160), index=True)
+    level: Mapped[int] = mapped_column(Integer, default=1, index=True)
+    status: Mapped[str] = mapped_column(String(30), default="active", index=True)

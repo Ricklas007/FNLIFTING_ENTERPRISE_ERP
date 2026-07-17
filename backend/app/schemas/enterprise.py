@@ -69,6 +69,13 @@ class AutomationRuleCreate(BaseModel):
     severity: str = Field(default="info", pattern="^(info|warning|critical)$")
 
 
+class AIAssistantSuggestionReview(BaseModel):
+    status: str = Field(pattern="^(pending|accepted|rejected|edited)$")
+    recommendation: str | None = Field(default=None, min_length=3)
+    rationale: str | None = None
+    action: dict | None = None
+
+
 class AttendanceCreate(BaseModel):
     employee_id: str
     work_date: date
@@ -84,6 +91,15 @@ class LeaveRequestCreate(BaseModel):
     start_date: date
     end_date: date
     reason: str | None = None
+
+
+class OrgPositionCreate(BaseModel):
+    code: str = Field(min_length=2, max_length=60)
+    title: str = Field(min_length=2, max_length=160)
+    department_id: str
+    employee_id: str | None = None
+    supervisor_position_id: str | None = None
+    level: int = Field(default=1, ge=0, le=30)
 
 
 class PayrollRunCreate(BaseModel):

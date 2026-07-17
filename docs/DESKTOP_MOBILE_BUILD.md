@@ -80,23 +80,25 @@ npm run android:build:portable
 | `npm run mobile:init` | passou | Projeto Android criado. |
 | `npm run mobile:sync` | passou | Capacitor sincronizado com `frontend/dist`. |
 | `npm run android:open` | falhou por ambiente | Android Studio nao esta configurado nesta maquina. |
-| `npm run desktop:pack` | bloqueado por ambiente | `electron.exe` nao ficou disponivel porque o download/rebuild do Electron excedeu o tempo da sessao. |
+| `npm run desktop:pack` | superado | Bloqueio inicial por download do Electron foi resolvido; `win-unpacked` final foi gerado. |
 | `backend/.venv/Scripts/python.exe -m pytest tests/test_observability_headers.py` | passou | 1 teste passou; execucao lenta por seed/demo. |
 | `backend/.venv/Scripts/python.exe -m pytest tests/test_auth_dashboard.py tests/test_public_certificate_validation.py` | passou | 11 testes passaram. |
-| `backend/.venv/Scripts/python.exe -m alembic current` | passou | Banco em `20260712_0002 (head)`. |
-| `backend/.venv/Scripts/python.exe -m alembic heads` | passou | Head unico `20260712_0002 (head)`. |
+| `backend/.venv/Scripts/python.exe -m alembic current` | passou | Banco em `20260717_0004 (head)`. |
+| `backend/.venv/Scripts/python.exe -m alembic heads` | passou | Head unico `20260717_0004 (head)`. |
 | `scripts/prod-preflight.ps1 -SkipTests -SkipFrontendBuild` | passou | Ready com 11 OK, 0 avisos e 0 falhas. |
 | `/ready` em backend temporario local | passou | `status=ready`, versao `0.12.1`, 10 OK, 1 aviso de backup antigo no banco dev e 0 falhas. |
-| `npm run desktop:backend:smoke` | passou | Backend standalone: migrate, seed, serve e `/ready` em runtime temporario. |
-| `npm run desktop:pack` | passou | Gerou `release/win-unpacked` 0.12.1 com backend standalone. |
-| `npm run desktop:smoke` | passou | 3 ciclos de abertura/fecho/reabertura em `win-unpacked`. |
-| `npm run desktop:dist` | passou | Gerou `release/FNLIFTING-ENTERPRISE-ERP-Setup-0.12.1.exe`. |
-| Instalador 0.12.1 silencioso por utilizador | passou | Exit code 0; instalado em `%LOCALAPPDATA%\Programs`. |
-| Smoke instalado 0.12.1 | passou | 3 ciclos com executavel instalado em `%LOCALAPPDATA%\Programs`. |
+| `npm run desktop:backend:smoke` | passou | Backend standalone: migrate, seed, serve e `/ready` em runtime temporario, incluindo migration `20260717_0004`. |
+| `npx electron-builder --dir --publish never` | passou | Gerou `release/win-unpacked` 0.12.1 com backend standalone e sem `.venv`. |
+| Smoke `win-unpacked` | passou | 3 ciclos de abertura/fecho/reabertura em `win-unpacked`. |
+| `npx electron-builder --win nsis --publish never` | passou | Gerou `release/FNLIFTING-ENTERPRISE-ERP-Setup-0.12.1.exe`. |
+| Instalacao por utilizador 0.12.1 | passou | Atualizada em `%LOCALAPPDATA%\Programs\FNLIFTING ENTERPRISE ERP`; atalho do Desktop aponta para ela. |
+| Smoke instalado 0.12.1 por utilizador | passou | 3 ciclos com executavel instalado em `%LOCALAPPDATA%\Programs`. |
 | Smoke com `userData` real | passou | Migration idempotente, backup pre-migration e `DESKTOP_READY`. |
-| `backend/.venv/Scripts/python.exe -m pytest -q` | passou | 23 testes passaram. |
+| `backend/.venv/Scripts/python.exe -m pytest backend/tests -q` | passou | 27 testes passaram. |
 | `npm run android:build` | depende do ambiente | Usa `JAVA_HOME`, `javac` no PATH, Android Studio JBR ou JDK local em `.runtime/android-jdk`. |
 | `npm run android:build:portable` | disponivel | Baixa/retoma JDK 17 para `.runtime/android-jdk` e executa `mobile:sync` + Gradle sem instalacao global de Java. |
+
+Nota: a instalacao all-users em `C:\Program Files\FNLIFTING ENTERPRISE ERP` requer execucao do instalador como Administrador. Sem elevacao/UAC, a validacao funcional desta execucao usa a instalacao por utilizador em `%LOCALAPPDATA%\Programs\FNLIFTING ENTERPRISE ERP`.
 
 ## Como gerar o instalador Windows
 

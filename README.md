@@ -94,6 +94,7 @@ O backup inicial de demonstração usa a palavra-passe `DemoBackup@2026`. Crie b
 - cadastro funcional de motoristas e camiões-cisterna, documentos e alertas de validade;
 - viagens, carga, cliente, estados operacionais, incidentes e posições GPS;
 - mapa real MapLibre com provider online raster, importação MBTiles/PMTiles, gestor offline, última posição, velocidade, combustível, geofences, alertas e replay GPS.
+- command center enterprise da frota com compliance documental, tanques, reboques, manutenção e incidentes calculados sobre dados reais.
 - património empresarial com valores, depreciação, localização, responsável, manutenções e transferências;
 - centro financeiro com despesas, receitas, faturas, pagamentos, recibos e PDFs automáticos;
 - gestão documental com upload local, checksum SHA-256, versões, validade, aprovação e acesso controlado;
@@ -105,6 +106,8 @@ O backup inicial de demonstração usa a palavra-passe `DemoBackup@2026`. Crie b
 - centro Backup & Sync com processamento manual, resolução de conflitos e histórico;
 - backup integral cifrado por PBKDF2/Fernet, verificação SHA-256, exportação e restauro controlado;
 - configurações empresariais persistentes para backup, sincronização, finanças, relatórios e segurança.
+- assistente IA local com sugestões persistidas a partir de OCR e regras, permitindo aceitar, editar ou descartar antes de qualquer ação.
+- organograma RH enterprise com posições, supervisores, departamentos e ocupantes ligados aos trabalhadores reais.
 - readiness público em `/ready` e painel protegido Produção & Saúde;
 - migrações Alembic com baseline das Fases 1–7;
 - Dockerfiles para backend/frontend e `docker-compose.yml` com volume persistente;
