@@ -16,6 +16,7 @@
     "desktop:build": "npm run desktop:frontend:build && npm run desktop:backend:build && npm run desktop:validate",
     "desktop:pack": "npm run desktop:build && electron-builder --dir",
     "desktop:dist": "npm run desktop:build && electron-builder --win nsis",
+    "release:readiness": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/release-readiness.ps1",
     "desktop:smoke": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/test-desktop-relaunch.ps1",
     "desktop:installed:smoke": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/test-desktop-relaunch.ps1 -Installed",
     "app:start": "npm run desktop:dev",

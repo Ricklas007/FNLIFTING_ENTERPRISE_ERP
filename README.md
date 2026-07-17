@@ -1,5 +1,7 @@
 # FNLIFTING Enterprise Management System
 
+> BUILD STATUS: INTERNAL DEVELOPMENT BUILD. A versao `0.12.1` e um build interno local-first para validacao funcional; nao e release final de producao enquanto existirem itens funcionais, GIS/GPS fisico, workflows, validacoes visuais e providers externos pendentes.
+
 > Estado atual: versão `0.12.1` local-first com Fases 1–12, backend desktop standalone, MFA, sync 2.0 local/cloud-ready, fleet command center, IA/OCR local, RH enterprise/payroll, BI, compliance e preparação SaaS.
 
 Documentação enterprise:
