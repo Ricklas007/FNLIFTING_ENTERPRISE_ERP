@@ -1,4 +1,7 @@
 import json
+import os
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -24,6 +27,8 @@ from app.schemas.fleet_tracking import (
     GeofenceOut,
     GeofenceUpdate,
     GPSDeviceIngestRequest,
+    GPSProviderHealthOut,
+    GPSProviderOut,
     GPSReplayOut,
     GPSTrackerDeviceCreate,
     GPSTrackerDeviceOut,
@@ -44,6 +49,98 @@ from app.services.gps_tracking_service import (
 
 
 router = APIRouter(prefix="/fleet", tags=["GPS, Geofences e Alertas"])
+
+
+def _truthy(value: str | None) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on", "enabled"}
+
+
+def _gps_provider_registry() -> list[dict[str, object]]:
+    traccar_url = os.getenv("TRACCAR_URL", "").strip()
+    traccar_enabled = _truthy(os.getenv("TRACCAR_ENABLED"))
+    vendor_url = os.getenv("GPS_VENDOR_API_URL", "").strip()
+    mqtt_url = os.getenv("GPS_MQTT_URL", "").strip()
+    return [
+        {
+            "code": "TRACCAR",
+            "name": "Traccar Gateway",
+            "provider_type": "telematics_gateway",
+            "status": "CONFIGURED_NOT_TESTED" if traccar_enabled and traccar_url else "DISCONNECTED",
+            "requires_credentials": True,
+            "configured": bool(traccar_enabled and traccar_url),
+            "capabilities": ["devices", "positions", "events", "status", "websocket"],
+            "notes": "Defina TRACCAR_ENABLED=true, TRACCAR_URL e credenciais/token para testar ligação real.",
+        },
+        {
+            "code": "VENDOR_CLOUD",
+            "name": "Fornecedor cloud do fabricante",
+            "provider_type": "vendor_api",
+            "status": "CONFIGURED_NOT_TESTED" if vendor_url else "DISCONNECTED",
+            "requires_credentials": True,
+            "configured": bool(vendor_url),
+            "capabilities": ["devices", "positions", "events"],
+            "notes": "O IMEI/serial identifica o rastreador; autenticação real depende da API do fabricante.",
+        },
+        {
+            "code": "HTTP_TRACKER",
+            "name": "HTTP tracker tokenizado",
+            "provider_type": "direct_http",
+            "status": "CONNECTED",
+            "requires_credentials": False,
+            "configured": True,
+            "capabilities": ["secure_ingest", "idempotency", "tenant_validation"],
+            "notes": "Endpoint /fleet/gps/ingest usa X-GPS-Device-Token; não usa login humano.",
+        },
+        {
+            "code": "MQTT_TRACKER",
+            "name": "MQTT tracker",
+            "provider_type": "mqtt",
+            "status": "CONFIGURED_NOT_TESTED" if mqtt_url else "DISCONNECTED",
+            "requires_credentials": True,
+            "configured": bool(mqtt_url),
+            "capabilities": ["positions", "events", "heartbeat"],
+            "notes": "Adapter preparado no registry; broker real ainda precisa de configuração e worker.",
+        },
+        {
+            "code": "MANUAL_IMPORT",
+            "name": "Importação manual GPX/CSV/GeoJSON",
+            "provider_type": "manual_import",
+            "status": "CONFIGURED_NOT_TESTED",
+            "requires_credentials": False,
+            "configured": True,
+            "capabilities": ["history", "replay"],
+            "notes": "Provider de recuperação/histórico; não representa tempo real.",
+        },
+    ]
+
+
+def _traccar_health() -> tuple[str, str, bool]:
+    url = os.getenv("TRACCAR_URL", "").strip().rstrip("/")
+    enabled = _truthy(os.getenv("TRACCAR_ENABLED"))
+    if not enabled or not url:
+        return "DISCONNECTED", "TRACCAR_ENABLED/TRACCAR_URL não configurados.", False
+    request = urllib.request.Request(f"{url}/api/server", method="GET")
+    token = os.getenv("TRACCAR_TOKEN", "").strip()
+    username = os.getenv("TRACCAR_USERNAME", "").strip()
+    password = os.getenv("TRACCAR_PASSWORD", "").strip()
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
+    elif username and password:
+        import base64
+
+        raw = f"{username}:{password}".encode("utf-8")
+        request.add_header("Authorization", f"Basic {base64.b64encode(raw).decode('ascii')}")
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            if 200 <= response.status < 300:
+                return "CONNECTED", "Ligação Traccar validada sem expor credenciais.", True
+            return "DISCONNECTED", f"Traccar respondeu HTTP {response.status}.", True
+    except urllib.error.HTTPError as exc:
+        if exc.code in {401, 403}:
+            return "AUTH_ERROR", "Traccar recusou as credenciais/token configurados.", True
+        return "DISCONNECTED", f"Traccar respondeu HTTP {exc.code}.", True
+    except Exception as exc:
+        return "DISCONNECTED", f"Falha ao contactar Traccar: {exc.__class__.__name__}", True
 
 
 def _commit_or_conflict(db: Session, detail: str) -> None:
@@ -93,6 +190,26 @@ def _position_query(company_id: str, truck_id: str | None, trip_id: str | None, 
     if date_to:
         query = query.where(GPSPosition.recorded_at <= date_to)
     return query.order_by(GPSPosition.recorded_at.asc())
+
+
+@router.get("/gps/providers", response_model=list[GPSProviderOut])
+def list_gps_providers(user: User = Depends(require_permission("fleet.view"))):
+    return _gps_provider_registry()
+
+
+@router.post("/gps/providers/{provider_code}/health", response_model=GPSProviderHealthOut)
+def gps_provider_health(provider_code: str, user: User = Depends(require_permission("fleet.manage"))):
+    code = provider_code.strip().upper()
+    if code == "TRACCAR":
+        status_value, message, configured = _traccar_health()
+    else:
+        provider = next((item for item in _gps_provider_registry() if item["code"] == code), None)
+        if not provider:
+          raise HTTPException(status_code=404, detail="Provider GPS não encontrado")
+        status_value = str(provider["status"])
+        configured = bool(provider["configured"])
+        message = str(provider.get("notes") or "Provider registado, mas sem teste ativo implementado.")
+    return GPSProviderHealthOut(code=code, status=status_value, message=message, configured=configured, tested_at=now_utc())
 
 
 @router.get("/gps/devices", response_model=list[GPSTrackerDeviceOut])

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { AlertTriangle, CalendarClock, Fuel, Navigation, Plus, Radio, Route, ShieldCheck, Star, Truck, UserRound } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Fuel, Navigation, Plus, Radio, Route, Satellite, ShieldCheck, Star, Truck, UserRound } from 'lucide-react'
 
 import { OfflineMapManager, RealFleetMap } from '@/components/RealFleetMap'
 import { cn } from '@/lib/utils'
 import { ErrorBanner, hasPermission, LoadingRows, Modal, PageHeader, SubmitButton } from '@/pages/HRPages'
 import { api, ApiError } from '@/services/api'
 import { useAuth } from '@/store/AuthContext'
-import type { Client, Driver, FleetAlertRecord, FleetIncident, FleetSummary, GeofenceRecord, GPSPosition, GPSReplayData, TripRecord, TruckRecord } from '@/types'
+import type { Client, Driver, FleetAlertRecord, FleetIncident, FleetSummary, GeofenceRecord, GPSPosition, GPSProviderHealth, GPSProviderRecord, GPSReplayData, TripRecord, TruckRecord } from '@/types'
 
 const fleetLabels: Record<string, string> = {
   available: 'Disponível',
@@ -237,6 +237,9 @@ export function TripsPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [geofences, setGeofences] = useState<GeofenceRecord[]>([])
   const [alerts, setAlerts] = useState<FleetAlertRecord[]>([])
+  const [providers, setProviders] = useState<GPSProviderRecord[]>([])
+  const [providerHealth, setProviderHealth] = useState<Record<string, GPSProviderHealth>>({})
+  const [selectedPosition, setSelectedPosition] = useState<GPSPosition | null>(null)
   const [replay, setReplay] = useState<GPSReplayData | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -247,7 +250,7 @@ export function TripsPage() {
     setLoading(true)
     setError(null)
     try {
-      const [tripRows, live, issueRows, vehicles, people, companies, fenceRows, alertRows] = await Promise.all([
+      const [tripRows, live, issueRows, vehicles, people, companies, fenceRows, alertRows, providerRows] = await Promise.all([
         api.trips(),
         api.livePositions(),
         api.incidents(),
@@ -256,6 +259,7 @@ export function TripsPage() {
         api.clients(),
         api.geofences(),
         api.fleetAlerts(),
+        api.gpsProviders(),
       ])
       setTrips(tripRows)
       setPositions(live)
@@ -265,6 +269,7 @@ export function TripsPage() {
       setClients(companies)
       setGeofences(fenceRows)
       setAlerts(alertRows)
+      setProviders(providerRows)
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : 'Falha ao carregar viagens e GPS.')
     } finally {
@@ -281,27 +286,6 @@ export function TripsPage() {
       await load()
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : 'Não foi possível atualizar a viagem.')
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  async function simulate(item: GPSPosition) {
-    setBusyId(item.truck_id)
-    try {
-      await api.createGPSPosition({
-        truck_id: item.truck_id,
-        trip_id: item.trip_id || null,
-        latitude: item.latitude - 0.035,
-        longitude: item.longitude + 0.05,
-        speed_kmh: 62,
-        heading: item.heading || 110,
-        vehicle_state: 'moving',
-        fuel_level_percent: Math.max(0, (item.fuel_level_percent || 80) - 2),
-      })
-      await load()
-    } catch (reason) {
-      setError(reason instanceof ApiError ? reason.message : 'Não foi possível receber a posição GPS.')
     } finally {
       setBusyId(null)
     }
@@ -330,6 +314,18 @@ export function TripsPage() {
     }
   }
 
+  async function testProvider(item: GPSProviderRecord) {
+    setBusyId(item.code)
+    try {
+      const result = await api.testGpsProvider(item.code)
+      setProviderHealth((current) => ({ ...current, [item.code]: result }))
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'Não foi possível testar o provider GPS.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <>
       <PageHeader eyebrow="Frota · GPS" title="Viagens em tempo real" description="Planeamento, carga, rota, última posição conhecida e incidentes operacionais num mapa geográfico real." action={canManage && <button className="module-primary-button" onClick={() => setFormOpen(true)}><Plus /> Nova viagem</button>} />
@@ -339,7 +335,7 @@ export function TripsPage() {
           <div className="gps-layout">
             <section className="gps-map-panel">
               <header><div><Radio /><p><strong>Monitorização GPS</strong><small>{positions.length} camiões com sinal</small></p></div><span>MAPLIBRE</span></header>
-              <RealFleetMap positions={positions} geofences={geofences} replay={replay} onMarkerClick={(position) => void simulate(position)} />
+              <RealFleetMap positions={positions} geofences={geofences} replay={replay} onMarkerClick={setSelectedPosition} />
               <footer>{positions.map((item) => <div key={item.id}><span><Truck /></span><p><strong>{item.truck.plate}</strong><small>{item.truck.driver?.full_name || 'Sem motorista'}</small></p><b>{Math.round(item.speed_kmh)} km/h</b><small>{new Date(item.recorded_at).toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' })}</small></div>)}</footer>
             </section>
             <aside className="trip-stream">
@@ -352,9 +348,10 @@ export function TripsPage() {
             </section>
           </div>
           <section className="gps-command-center-strip">
-            <article><header><Navigation /><p><strong>Replay carregado</strong><small>{replay ? `${replay.count} ponto(s), ${replay.stops.length} paragem(ns)` : 'Selecione uma viagem para replay.'}</small></p></header>{replay && <button className="module-secondary-button" onClick={() => setReplay(null)}>Limpar replay</button>}</article>
+            <article><header><Navigation /><p><strong>{selectedPosition ? selectedPosition.truck.plate : 'Replay carregado'}</strong><small>{selectedPosition ? `${selectedPosition.latitude.toFixed(5)}, ${selectedPosition.longitude.toFixed(5)} · ${Math.round(selectedPosition.speed_kmh)} km/h` : replay ? `${replay.count} ponto(s), ${replay.stops.length} paragem(ns)` : 'Selecione uma viagem ou camião no mapa.'}</small></p></header>{replay && <button className="module-secondary-button" onClick={() => setReplay(null)}>Limpar replay</button>}</article>
             <article><header><AlertTriangle /><p><strong>Alertas abertos</strong><small>{alerts.length} evento(s) por resolver</small></p></header>{alerts.slice(0, 4).map((item) => <button key={item.id} className="fleet-alert-pill" onClick={() => void resolveAlert(item)}><span>{item.severity}</span>{item.title}</button>)}</article>
             <article><header><Radio /><p><strong>Geofences ativas</strong><small>{geofences.filter((item) => item.status === 'active').length} área(s)</small></p></header>{geofences.slice(0, 4).map((item) => <span key={item.id} className="geofence-pill">{item.geofence_type} · {item.name}</span>)}</article>
+            <article><header><Satellite /><p><strong>Integrações GPS</strong><small>{providers.length} provider(s) registado(s)</small></p></header>{providers.slice(0, 5).map((item) => <button key={item.code} className="fleet-alert-pill" disabled={busyId === item.code || (!canManage && item.status !== 'CONNECTED')} onClick={() => canManage ? void testProvider(item) : undefined}><span>{providerHealth[item.code]?.status || item.status}</span>{item.name}</button>)}</article>
           </section>
           <OfflineMapManager />
         </>

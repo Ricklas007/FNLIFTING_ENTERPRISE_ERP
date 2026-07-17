@@ -49,8 +49,8 @@ android/.gradle/
 *.pmtiles
 *.gpkg
 *.osm.pbf
-maps/
-map-cache/
+/maps/
+/map-cache/
 frontend/.env
 frontend/.env.local
 frontend/.env.production.local

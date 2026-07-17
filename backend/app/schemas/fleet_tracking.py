@@ -138,3 +138,22 @@ class DeviceIngestOut(BaseModel):
     geofence_events_created: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class GPSProviderOut(BaseModel):
+    code: str
+    name: str
+    provider_type: str
+    status: str
+    requires_credentials: bool
+    configured: bool
+    capabilities: list[str]
+    notes: str | None = None
+
+
+class GPSProviderHealthOut(BaseModel):
+    code: str
+    status: str
+    message: str
+    configured: bool
+    tested_at: datetime

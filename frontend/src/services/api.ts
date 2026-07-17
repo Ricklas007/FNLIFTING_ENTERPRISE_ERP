@@ -8,7 +8,7 @@ import type {
   PortalBilling, PortalOverview, ReadinessReport, ServiceRequestRecord, SyncQueueRecord, SyncRunRecord,
   SyncSummary, SystemSetting, LoginResponse, MfaSetup, EnterpriseOverview, EnterpriseNotification,
   EnterpriseDevice, SessionRecord, FleetCommandCenter, FleetComplianceCenter, AutomationCenter, AIAssistantCenter, EmployeePortal, OrgChart, ExecutiveBI,
-  ComplianceItem, LicenseStatus, GeofenceRecord, FleetAlertRecord, GPSReplayData,
+  ComplianceItem, LicenseStatus, GeofenceRecord, FleetAlertRecord, GPSProviderHealth, GPSProviderRecord, GPSReplayData,
 } from '@/types'
 
 declare global {
@@ -185,6 +185,8 @@ export const api = {
   createGeofence: (payload: Record<string, unknown>) => request<GeofenceRecord>('/fleet/geofences', { method: 'POST', body: JSON.stringify(payload) }, true),
   fleetAlerts: (status = 'open') => request<FleetAlertRecord[]>(`/fleet/alerts?status=${encodeURIComponent(status)}`, {}, true),
   resolveFleetAlert: (id: string) => request<{ message: string }>(`/fleet/alerts/${id}/resolve`, { method: 'POST' }, true),
+  gpsProviders: () => request<GPSProviderRecord[]>('/fleet/gps/providers', {}, true),
+  testGpsProvider: (code: string) => request<GPSProviderHealth>(`/fleet/gps/providers/${encodeURIComponent(code)}/health`, { method: 'POST' }, true),
   mapStatus: () => request<Record<string, unknown>>('/maps/status', {}, true),
   setMapMode: (mode: 'auto' | 'offline' | 'online') => request<Record<string, unknown>>('/maps/mode', { method: 'POST', body: JSON.stringify({ mode }) }, true),
   importMapPackage: (payload: Record<string, unknown>) => request<Record<string, unknown>>('/maps/packages/import', { method: 'POST', body: JSON.stringify(payload) }, true),

@@ -485,6 +485,8 @@ button:disabled { cursor: not-allowed; opacity: .62; }
 }
 
 .gps-marker.real {
+  position: relative;
+  transform: none;
   border: 1px solid #36a5ff;
   cursor: pointer;
 }
@@ -531,6 +533,48 @@ button:disabled { cursor: not-allowed; opacity: .62; }
 
 .map-legend.real {
   z-index: 3;
+}
+
+.map-unavailable-panel,
+.map-loading-panel {
+  position: absolute;
+  inset: 18px;
+  z-index: 4;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  border: 1px solid rgba(82, 151, 220, .24);
+  border-radius: 18px;
+  color: #d8eaff;
+  background: linear-gradient(145deg, rgba(2, 8, 23, .92), rgba(4, 17, 34, .82));
+  text-align: center;
+  padding: 24px;
+}
+
+.map-unavailable-panel svg,
+.map-loading-panel svg {
+  width: 28px;
+  height: 28px;
+  color: #38bdf8;
+}
+
+.map-unavailable-panel strong {
+  font-size: 15px;
+}
+
+.map-unavailable-panel span,
+.map-unavailable-panel small,
+.map-unavailable-panel p,
+.map-loading-panel span {
+  max-width: 520px;
+  margin: 0;
+  color: #8fb0d0;
+  line-height: 1.55;
+}
+
+.map-unavailable-panel p {
+  color: #fbbf24;
 }
 
 .offline-map-manager {

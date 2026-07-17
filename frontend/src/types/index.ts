@@ -398,6 +398,25 @@ export interface FleetAlertRecord {
   payload: Record<string, unknown>
 }
 
+export interface GPSProviderRecord {
+  code: string
+  name: string
+  provider_type: string
+  status: 'CONNECTED' | 'CONFIGURED_NOT_TESTED' | 'DISCONNECTED' | 'AUTH_ERROR' | 'PROTOCOL_UNSUPPORTED' | string
+  requires_credentials: boolean
+  configured: boolean
+  capabilities: string[]
+  notes?: string
+}
+
+export interface GPSProviderHealth {
+  code: string
+  status: string
+  message: string
+  configured: boolean
+  tested_at: string
+}
+
 export interface GPSReplayData {
   mode: string
   count: number

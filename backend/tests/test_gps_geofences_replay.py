@@ -3,6 +3,25 @@ from uuid import uuid4
 from tests.enterprise_test_utils import client, login_headers
 
 
+def test_gps_provider_registry_and_traccar_health_without_credentials():
+    api = client()
+    headers = login_headers(api)
+
+    providers = api.get("/api/v1/fleet/gps/providers", headers=headers)
+    assert providers.status_code == 200, providers.text
+    rows = providers.json()
+    codes = {item["code"] for item in rows}
+    assert {"TRACCAR", "HTTP_TRACKER", "VENDOR_CLOUD", "MQTT_TRACKER", "MANUAL_IMPORT"} <= codes
+    assert next(item for item in rows if item["code"] == "HTTP_TRACKER")["status"] == "CONNECTED"
+    assert next(item for item in rows if item["code"] == "TRACCAR")["status"] in {"DISCONNECTED", "CONFIGURED_NOT_TESTED"}
+
+    health = api.post("/api/v1/fleet/gps/providers/TRACCAR/health", headers=headers)
+    assert health.status_code == 200, health.text
+    assert health.json()["status"] in {"DISCONNECTED", "AUTH_ERROR", "CONNECTED"}
+    assert "TRACCAR" == health.json()["code"]
+    api.close()
+
+
 def test_device_token_geofence_alert_replay_geojson_and_stream():
     api = client()
     headers = login_headers(api)
