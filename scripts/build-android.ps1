@@ -1,14 +1,21 @@
 param(
     [switch]$InstallPortableJdk,
-    [int]$DownloadMaxTimeSeconds = 0
+    [switch]$InstallPortableAndroidSdk,
+    [switch]$AcceptAndroidSdkLicenses,
+    [int]$DownloadMaxTimeSeconds = 0,
+    [int]$CompileSdkVersion = 35,
+    [string]$BuildToolsVersion = "35.0.0",
+    [string]$CommandLineToolsRevision = "14742923"
 )
 
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot
-$RuntimeDir = Join-Path $Root ".runtime\android-jdk"
+$JdkRuntimeDir = Join-Path $Root ".runtime\android-jdk"
+$AndroidSdkRoot = Join-Path $Root ".runtime\android-sdk"
 $DownloadDir = Join-Path $Root ".runtime\downloads"
 $PortableJdkUrl = "https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.zip"
+$CommandLineToolsUrl = "https://dl.google.com/android/repository/commandlinetools-win-$CommandLineToolsRevision`_latest.zip"
 
 function Test-JdkHome {
     param([string]$JdkHome)
@@ -36,64 +43,81 @@ function Get-JdkFromCommand {
     return $null
 }
 
+function Invoke-ResumableDownload {
+    param(
+        [string]$Url,
+        [string]$OutputPath,
+        [int]$MinimumBytes,
+        [string]$Description
+    )
+
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $OutputPath) | Out-Null
+
+    $partPath = "$OutputPath.part"
+    if (Test-Path -LiteralPath $OutputPath) {
+        $existing = Get-Item -LiteralPath $OutputPath
+        if ($existing.Length -ge $MinimumBytes) {
+            return
+        }
+
+        Write-Host "Removing incomplete $Description archive from previous run..."
+        Remove-Item -LiteralPath $OutputPath -Force
+    }
+
+    if (Test-Path -LiteralPath $partPath) {
+        Write-Host "Resuming $Description download in .runtime..."
+    }
+    else {
+        Write-Host "Downloading $Description to .runtime..."
+    }
+
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if ($curl) {
+        $curlArgs = @(
+            "-L",
+            "--fail",
+            "--retry", "2",
+            "--connect-timeout", "30",
+            "--speed-limit", "10240",
+            "--speed-time", "60",
+            "-C", "-",
+            "--output", $partPath,
+            $Url
+        )
+
+        if ($DownloadMaxTimeSeconds -gt 0) {
+            $curlArgs = @("--max-time", "$DownloadMaxTimeSeconds") + $curlArgs
+        }
+
+        & $curl.Source @curlArgs
+        if ($LASTEXITCODE -ne 0) {
+            throw "$Description download did not finish. Run the same command again to resume it."
+        }
+    }
+    else {
+        Invoke-WebRequest -Uri $Url -OutFile $partPath
+    }
+
+    $download = Get-Item -LiteralPath $partPath
+    if ($download.Length -lt $MinimumBytes) {
+        throw "Downloaded $Description archive is unexpectedly small: $($download.Length) bytes."
+    }
+
+    Move-Item -LiteralPath $partPath -Destination $OutputPath -Force
+}
+
 function Install-PortableJdk {
-    New-Item -ItemType Directory -Force -Path $RuntimeDir, $DownloadDir | Out-Null
+    New-Item -ItemType Directory -Force -Path $JdkRuntimeDir, $DownloadDir | Out-Null
 
     $zipPath = Join-Path $DownloadDir "microsoft-jdk17-windows-x64.zip"
-    $partPath = "$zipPath.part"
-    if (Test-Path -LiteralPath $zipPath) {
-        $existing = Get-Item -LiteralPath $zipPath
-        if ($existing.Length -lt 100MB) {
-            Write-Host "Removing incomplete portable JDK archive from previous run..."
-            Remove-Item -LiteralPath $zipPath -Force
-        }
-    }
+    Invoke-ResumableDownload `
+        -Url $PortableJdkUrl `
+        -OutputPath $zipPath `
+        -MinimumBytes 100MB `
+        -Description "Microsoft OpenJDK 17"
 
-    if (-not (Test-Path -LiteralPath $zipPath)) {
-        if (Test-Path -LiteralPath $partPath) {
-            Write-Host "Resuming Microsoft OpenJDK 17 download in .runtime..."
-        }
-        else {
-            Write-Host "Downloading Microsoft OpenJDK 17 to .runtime..."
-        }
-
-        $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
-        if ($curl) {
-            $curlArgs = @(
-                "-L",
-                "--fail",
-                "--retry", "2",
-                "--connect-timeout", "30",
-                "--speed-limit", "10240",
-                "--speed-time", "60",
-                "-C", "-",
-                "--output", $partPath,
-                $PortableJdkUrl
-            )
-
-            if ($DownloadMaxTimeSeconds -gt 0) {
-                $curlArgs = @("--max-time", "$DownloadMaxTimeSeconds") + $curlArgs
-            }
-
-            & $curl.Source @curlArgs
-            if ($LASTEXITCODE -ne 0) {
-                throw "Portable JDK download did not finish. Run 'npm run android:build:portable' again to resume it."
-            }
-        }
-        else {
-            Invoke-WebRequest -Uri $PortableJdkUrl -OutFile $partPath
-        }
-
-        $download = Get-Item -LiteralPath $partPath
-        if ($download.Length -lt 100MB) {
-            throw "Downloaded JDK archive is unexpectedly small: $($download.Length) bytes."
-        }
-
-        Move-Item -LiteralPath $partPath -Destination $zipPath -Force
-    }
-
-    $extractDir = Join-Path $RuntimeDir "extract"
-    $finalDir = Join-Path $RuntimeDir "jdk-17"
+    $extractDir = Join-Path $JdkRuntimeDir "extract"
+    $finalDir = Join-Path $JdkRuntimeDir "jdk-17"
 
     if (Test-Path -LiteralPath $extractDir) {
         Remove-Item -LiteralPath $extractDir -Recurse -Force
@@ -132,7 +156,7 @@ function Resolve-JdkHome {
     }
 
     $candidates += @(
-        (Join-Path $RuntimeDir "jdk-17"),
+        (Join-Path $JdkRuntimeDir "jdk-17"),
         "C:\Program Files\Android\Android Studio\jbr",
         "C:\Program Files\Android\Android Studio\jre",
         "C:\Program Files\Eclipse Adoptium\jdk-17",
@@ -160,6 +184,193 @@ The portable mode downloads JDK 17 into .runtime/android-jdk, which is ignored b
 "@
 }
 
+function Get-SdkManager {
+    param([string]$SdkRoot)
+    return Join-Path $SdkRoot "cmdline-tools\latest\bin\sdkmanager.bat"
+}
+
+function Test-AndroidSdk {
+    param([string]$SdkRoot)
+
+    if ([string]::IsNullOrWhiteSpace($SdkRoot)) {
+        return $false
+    }
+
+    $sdkManager = Get-SdkManager $SdkRoot
+    $platformJar = Join-Path $SdkRoot "platforms\android-$CompileSdkVersion\android.jar"
+    $aapt2 = Join-Path $SdkRoot "build-tools\$BuildToolsVersion\aapt2.exe"
+    $adb = Join-Path $SdkRoot "platform-tools\adb.exe"
+
+    return (Test-Path -LiteralPath $sdkManager) -and
+        (Test-Path -LiteralPath $platformJar) -and
+        (Test-Path -LiteralPath $aapt2) -and
+        (Test-Path -LiteralPath $adb)
+}
+
+function Write-AndroidLocalProperties {
+    param([string]$SdkRoot)
+
+    $localProperties = Join-Path $Root "android\local.properties"
+    $escaped = ($SdkRoot -replace "\\", "/")
+    Set-Content -LiteralPath $localProperties -Value "sdk.dir=$escaped" -Encoding ASCII
+}
+
+function Invoke-SdkManager {
+    param(
+        [string]$SdkRoot,
+        [string[]]$Arguments,
+        [switch]$WithYesInput
+    )
+
+    $sdkManager = Get-SdkManager $SdkRoot
+    if (-not (Test-Path -LiteralPath $sdkManager)) {
+        throw "sdkmanager.bat was not found at $sdkManager"
+    }
+
+    if ($WithYesInput) {
+        $yes = ("y`r`n" * 200)
+        $tempInput = Join-Path $env:TEMP "fnlifting-android-licenses.txt"
+        Set-Content -LiteralPath $tempInput -Value $yes -Encoding ASCII
+        try {
+            $cmdLine = "`"$sdkManager`" --sdk_root=`"$SdkRoot`" $($Arguments -join ' ') < `"$tempInput`""
+            & cmd.exe /c $cmdLine
+        }
+        finally {
+            Remove-Item -LiteralPath $tempInput -Force -ErrorAction SilentlyContinue
+        }
+    }
+    else {
+        & $sdkManager "--sdk_root=$SdkRoot" @Arguments
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "sdkmanager failed with exit code $LASTEXITCODE"
+    }
+}
+
+function Install-PortableAndroidSdk {
+    if (-not $AcceptAndroidSdkLicenses) {
+        throw @"
+Android SDK is not installed.
+
+This script can install a portable Android SDK into .runtime/android-sdk, but Google Android SDK licenses must be accepted explicitly.
+
+Run:
+
+  powershell -ExecutionPolicy Bypass -File scripts/build-android.ps1 -InstallPortableJdk -InstallPortableAndroidSdk -AcceptAndroidSdkLicenses
+
+or:
+
+  npm run android:build:portable:accept-licenses
+"@
+    }
+
+    New-Item -ItemType Directory -Force -Path $AndroidSdkRoot, $DownloadDir | Out-Null
+
+    $zipPath = Join-Path $DownloadDir "commandlinetools-win-$CommandLineToolsRevision`_latest.zip"
+    Invoke-ResumableDownload `
+        -Url $CommandLineToolsUrl `
+        -OutputPath $zipPath `
+        -MinimumBytes 40MB `
+        -Description "Android command-line tools"
+
+    $extractDir = Join-Path $AndroidSdkRoot "cmdline-tools-extract"
+    $latestDir = Join-Path $AndroidSdkRoot "cmdline-tools\latest"
+
+    if (Test-Path -LiteralPath $extractDir) {
+        Remove-Item -LiteralPath $extractDir -Recurse -Force
+    }
+    if (Test-Path -LiteralPath $latestDir) {
+        Remove-Item -LiteralPath $latestDir -Recurse -Force
+    }
+
+    New-Item -ItemType Directory -Force -Path $extractDir, (Split-Path -Parent $latestDir) | Out-Null
+    Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir -Force
+
+    $toolsRoot = Get-ChildItem -LiteralPath $extractDir -Directory |
+        Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "bin\sdkmanager.bat") } |
+        Select-Object -First 1
+
+    if (-not $toolsRoot) {
+        $toolsRoot = Get-ChildItem -LiteralPath $extractDir -Directory -Recurse |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "bin\sdkmanager.bat") } |
+            Select-Object -First 1
+    }
+
+    if (-not $toolsRoot) {
+        throw "Android command-line tools archive was downloaded, but sdkmanager.bat was not found inside it."
+    }
+
+    Move-Item -LiteralPath $toolsRoot.FullName -Destination $latestDir
+    Remove-Item -LiteralPath $extractDir -Recurse -Force
+
+    $env:ANDROID_HOME = $AndroidSdkRoot
+    $env:ANDROID_SDK_ROOT = $AndroidSdkRoot
+    $env:PATH = (Join-Path $AndroidSdkRoot "cmdline-tools\latest\bin") + [IO.Path]::PathSeparator +
+        (Join-Path $AndroidSdkRoot "platform-tools") + [IO.Path]::PathSeparator + $env:PATH
+
+    $androidUserDir = Join-Path $env:USERPROFILE ".android"
+    New-Item -ItemType Directory -Force -Path $androidUserDir | Out-Null
+    New-Item -ItemType File -Force -Path (Join-Path $androidUserDir "repositories.cfg") | Out-Null
+
+    Write-Host "Accepting Android SDK licenses because -AcceptAndroidSdkLicenses was provided..."
+    Invoke-SdkManager -SdkRoot $AndroidSdkRoot -Arguments @("--licenses") -WithYesInput
+
+    Write-Host "Installing Android SDK platform-tools, platform android-$CompileSdkVersion and build-tools $BuildToolsVersion..."
+    Invoke-SdkManager -SdkRoot $AndroidSdkRoot -Arguments @(
+        "platform-tools",
+        "platforms;android-$CompileSdkVersion",
+        "build-tools;$BuildToolsVersion"
+    )
+
+    if (-not (Test-AndroidSdk $AndroidSdkRoot)) {
+        throw "Portable Android SDK install finished, but required packages were not found."
+    }
+
+    Write-AndroidLocalProperties -SdkRoot $AndroidSdkRoot
+    return $AndroidSdkRoot
+}
+
+function Resolve-AndroidSdkRoot {
+    $candidates = @()
+
+    if ($env:ANDROID_HOME) {
+        $candidates += $env:ANDROID_HOME
+    }
+    if ($env:ANDROID_SDK_ROOT) {
+        $candidates += $env:ANDROID_SDK_ROOT
+    }
+
+    $candidates += @(
+        $AndroidSdkRoot,
+        (Join-Path $env:LOCALAPPDATA "Android\Sdk"),
+        "C:\Android\Sdk",
+        "C:\Program Files\Android\Sdk"
+    )
+
+    foreach ($candidate in $candidates | Where-Object { $_ } | Select-Object -Unique) {
+        if (Test-AndroidSdk $candidate) {
+            $resolved = (Resolve-Path -LiteralPath $candidate).Path
+            Write-AndroidLocalProperties -SdkRoot $resolved
+            return $resolved
+        }
+    }
+
+    if ($InstallPortableAndroidSdk) {
+        return (Install-PortableAndroidSdk)
+    }
+
+    throw @"
+No valid Android SDK was found.
+
+Install Android Studio/SDK and set ANDROID_HOME, or run:
+
+  npm run android:build:portable:accept-licenses
+
+The portable Android SDK mode stores tools in .runtime/android-sdk and writes android/local.properties.
+"@
+}
+
 try {
     $jdkHome = Resolve-JdkHome
 }
@@ -173,6 +384,21 @@ $env:PATH = (Join-Path $jdkHome "bin") + [IO.Path]::PathSeparator + $env:PATH
 
 Write-Host "Using JAVA_HOME=$jdkHome"
 & java -version
+
+try {
+    $sdkRoot = Resolve-AndroidSdkRoot
+}
+catch {
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    exit 1
+}
+
+$env:ANDROID_HOME = $sdkRoot
+$env:ANDROID_SDK_ROOT = $sdkRoot
+$env:PATH = (Join-Path $sdkRoot "platform-tools") + [IO.Path]::PathSeparator +
+    (Join-Path $sdkRoot "cmdline-tools\latest\bin") + [IO.Path]::PathSeparator + $env:PATH
+
+Write-Host "Using ANDROID_HOME=$sdkRoot"
 
 Push-Location $Root
 try {

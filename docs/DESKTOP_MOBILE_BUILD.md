@@ -66,6 +66,7 @@ npm run mobile:sync
 npm run android:open
 npm run android:build
 npm run android:build:portable
+npm run android:build:portable:accept-licenses
 ```
 
 ## Comandos executados nesta maquina
@@ -97,7 +98,9 @@ npm run android:build:portable
 | `backend/.venv/Scripts/python.exe -m pytest backend/tests -q` | passou | 27 testes passaram. |
 | `npx cap sync android` | passou | Assets web sincronizados para `android/app/src/main/assets/public`. |
 | `android/gradlew.bat assembleDebug` | bloqueado por ambiente | `JAVA_HOME` nao esta definido e nao existe `java` no PATH. Android SDK/Android Studio tambem nao esta instalado. |
-| `npm run android:build:portable` | parcialmente retomado | Download parcial do JDK preservado em `.runtime/downloads`; sem Android SDK nao ha APK validado nesta maquina. |
+| `npm run android:build` | falha controlada | Informa JDK ausente e orienta usar o modo portatil. |
+| `npm run android:build:portable` | preparado | Retoma JDK portatil e exige SDK Android valido; nao aceita licencas Google automaticamente. |
+| `npm run android:build:portable:accept-licenses` | preparado | Retoma JDK, instala SDK Android portatil em `.runtime/android-sdk`, aceita licencas Android SDK de forma explicita e executa Gradle. |
 
 Nota: a instalacao all-users em `C:\Program Files\FNLIFTING ENTERPRISE ERP` requer execucao do instalador como Administrador. Sem elevacao/UAC, a validacao funcional desta execucao usa a instalacao por utilizador em `%LOCALAPPDATA%\Programs\FNLIFTING ENTERPRISE ERP`.
 
@@ -147,6 +150,14 @@ npm run android:build:portable
 
 Esse comando descarrega um JDK 17 para `.runtime/android-jdk` e define `JAVA_HOME` apenas durante o build. A pasta `.runtime` fica ignorada pelo Git.
 Se a ligacao estiver lenta e o download nao terminar, volte a executar o mesmo comando; o arquivo parcial em `.runtime/downloads` e retomado automaticamente.
+
+Se tambem nao existir Android SDK/Android Studio, use o fluxo portatil com aceitacao explicita das licencas do Android SDK:
+
+```powershell
+npm run android:build:portable:accept-licenses
+```
+
+Esse comando instala command-line tools, `platform-tools`, `platforms;android-35` e `build-tools;35.0.0` em `.runtime/android-sdk`, escreve `android/local.properties` e depois executa `gradlew.bat assembleDebug`.
 
 Se `android:open` indicar que o Android Studio nao foi encontrado, defina:
 

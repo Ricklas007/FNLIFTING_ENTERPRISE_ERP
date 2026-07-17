@@ -48,6 +48,7 @@ O passo final Android foi retomado após as prioridades desktop, mapas, GPS e Fa
 - `.runtime/downloads/microsoft-jdk17-windows-x64.zip.part` foi preservado e retomado parcialmente;
 - `npx cap sync android` concluiu com sucesso;
 - `android/gradlew.bat assembleDebug` não gerou APK porque o ambiente não tem `JAVA_HOME`, `java` no `PATH`, nem Android SDK/Android Studio instalados.
+- `scripts/build-android.ps1` foi preparado para JDK e Android SDK portáteis, com aceitação explícita das licenças via `npm run android:build:portable:accept-licenses`.
 
 Conclusão Android: `BLOCKED_BY_ENVIRONMENT`. Não há APK validado nesta máquina.
 
@@ -59,4 +60,4 @@ Reexecutar a validação visual quando o ambiente tiver:
 2. Playwright instalado com browsers headless, ou
 3. navegador manual disponível para validar desktop/tablet/mobile.
 
-Para gerar APK real, instalar JDK 17 e Android SDK/Android Studio, ou concluir o download portátil do JDK e disponibilizar um SDK Android válido.
+Para gerar APK real, instalar JDK 17 e Android SDK/Android Studio, ou executar `npm run android:build:portable:accept-licenses` numa ligação estável para concluir o JDK, instalar o SDK portátil e compilar o APK.
