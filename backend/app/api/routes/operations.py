@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import require_permission
-from app.core.config import BACKEND_DIR
+from app.core.config import SIGNATURE_DIR
 from app.database.session import get_db
 from app.models import (
     Certificate, Client, Employee, Equipment, EquipmentType, Inspection,
@@ -35,7 +35,6 @@ router = APIRouter(prefix="/operations", tags=["Operações e Inspeções"])
 public_router = APIRouter(prefix="/public", tags=["Validação pública"])
 
 
-SIGNATURE_DIR = BACKEND_DIR / "data" / "signatures"
 SIGNATURE_DIR.mkdir(parents=True, exist_ok=True)
 
 

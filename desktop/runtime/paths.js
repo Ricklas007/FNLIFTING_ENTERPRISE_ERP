@@ -31,6 +31,7 @@ function createRuntimePaths(app) {
     base,
     data: path.join(base, 'data'),
     uploads: path.join(base, 'uploads'),
+    signatures: path.join(base, 'uploads', 'signatures'),
     certificates: path.join(base, 'certificates'),
     reports: path.join(base, 'reports'),
     invoices: path.join(base, 'invoices'),

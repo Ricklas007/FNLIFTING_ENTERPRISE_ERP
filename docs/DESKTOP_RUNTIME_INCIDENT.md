@@ -31,11 +31,13 @@ Evidencias nos logs reais:
 - Electron deixa de executar `python -m alembic`.
 - Electron deixa de empacotar `backend/.venv`.
 - Dados mutaveis movidos para `app.getPath("userData")`.
+- Assinaturas/carimbos tecnicos movidos para `userData/uploads/signatures`, evitando escrita em `resources/backend/FNLiftingBackend/_internal/data`.
 - Logs separados: `desktop.log`, `backend.log`, `migration.log`, `startup.log`.
 - Migration usa comando standalone `FNLiftingBackend.exe migrate`, com Alembic programatico.
 - Backup pre-migration criado antes de upgrade quando ja existe SQLite.
 - Smoke de tres arranques em `win-unpacked` passou.
 - Smoke de tres arranques na instalacao 0.12.1 em `%LOCALAPPDATA%\Programs` passou.
+- Smoke de tres arranques na instalacao all-users em `C:\Program Files\FNLIFTING ENTERPRISE ERP` passou apos reinstalar o 0.12.1.
 
 ## Nota sobre instalacao antiga
 

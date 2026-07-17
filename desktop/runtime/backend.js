@@ -43,6 +43,7 @@ class BackendManager {
       PORT: String(this.backendPort),
       DATA_DIR: this.paths.data,
       UPLOAD_DIR: this.paths.uploads,
+      SIGNATURE_DIR: this.paths.signatures,
       CERTIFICATE_DIR: this.paths.certificates,
       REPORT_DIR: this.paths.reports,
       INVOICE_DIR: this.paths.invoices,

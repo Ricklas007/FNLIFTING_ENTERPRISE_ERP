@@ -26,6 +26,7 @@ MAP_DIR = _runtime_path("MAP_DIR", DATA_DIR / "maps")
 MAP_CACHE_DIR = _runtime_path("MAP_CACHE_DIR", DATA_DIR / "map-cache")
 TEMP_DIR = _runtime_path("TEMP_DIR", DATA_DIR / "temp")
 ATTACHMENT_DIR = _runtime_path("ATTACHMENT_DIR", DATA_DIR / "attachments")
+SIGNATURE_DIR = _runtime_path("SIGNATURE_DIR", UPLOAD_DIR / "signatures")
 
 
 def sqlite_url(path: Path) -> str:
@@ -46,6 +47,7 @@ for _directory in (
     MAP_CACHE_DIR,
     TEMP_DIR,
     ATTACHMENT_DIR,
+    SIGNATURE_DIR,
 ):
     _directory.mkdir(parents=True, exist_ok=True)
 
@@ -74,6 +76,7 @@ class Settings(BaseModel):
     map_cache_dir: str = str(MAP_CACHE_DIR)
     temp_dir: str = str(TEMP_DIR)
     attachment_dir: str = str(ATTACHMENT_DIR)
+    signature_dir: str = str(SIGNATURE_DIR)
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     sync_remote_url: str = ""
     backup_encryption_key: str = ""
@@ -140,6 +143,7 @@ def get_settings() -> Settings:
         map_cache_dir=str(MAP_CACHE_DIR),
         temp_dir=str(TEMP_DIR),
         attachment_dir=str(ATTACHMENT_DIR),
+        signature_dir=str(SIGNATURE_DIR),
         cors_origins=os.getenv("CORS_ORIGINS", defaults.cors_origins),
         sync_remote_url=os.getenv("SYNC_REMOTE_URL", defaults.sync_remote_url),
         backup_encryption_key=os.getenv("BACKUP_ENCRYPTION_KEY", defaults.backup_encryption_key),
