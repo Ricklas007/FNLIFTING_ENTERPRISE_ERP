@@ -8,7 +8,7 @@ import type {
   PortalBilling, PortalOverview, ReadinessReport, ServiceRequestRecord, SyncQueueRecord, SyncRunRecord,
   SyncSummary, SystemSetting, LoginResponse, MfaSetup, EnterpriseOverview, EnterpriseNotification,
   EnterpriseDevice, SessionRecord, FleetCommandCenter, AutomationCenter, EmployeePortal, ExecutiveBI,
-  ComplianceItem, LicenseStatus,
+  ComplianceItem, LicenseStatus, GeofenceRecord, FleetAlertRecord, GPSReplayData,
 } from '@/types'
 
 declare global {
@@ -179,6 +179,12 @@ export const api = {
   createTrip: (payload: Record<string, unknown>) => request<TripRecord>('/fleet/trips', { method: 'POST', body: JSON.stringify(payload) }, true),
   updateTrip: (id: string, payload: Record<string, unknown>) => request<TripRecord>(`/fleet/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }, true),
   livePositions: () => request<GPSPosition[]>('/fleet/gps/live', {}, true),
+  gpsReplay: (params: string) => request<GPSReplayData>(`/fleet/gps/replay?${params}`, {}, true),
+  gpsGeojsonUrl: (params: string) => apiUrl(`/fleet/gps/export.geojson?${params}`),
+  geofences: () => request<GeofenceRecord[]>('/fleet/geofences', {}, true),
+  createGeofence: (payload: Record<string, unknown>) => request<GeofenceRecord>('/fleet/geofences', { method: 'POST', body: JSON.stringify(payload) }, true),
+  fleetAlerts: (status = 'open') => request<FleetAlertRecord[]>(`/fleet/alerts?status=${encodeURIComponent(status)}`, {}, true),
+  resolveFleetAlert: (id: string) => request<{ message: string }>(`/fleet/alerts/${id}/resolve`, { method: 'POST' }, true),
   mapStatus: () => request<Record<string, unknown>>('/maps/status', {}, true),
   setMapMode: (mode: 'auto' | 'offline' | 'online') => request<Record<string, unknown>>('/maps/mode', { method: 'POST', body: JSON.stringify({ mode }) }, true),
   importMapPackage: (payload: Record<string, unknown>) => request<Record<string, unknown>>('/maps/packages/import', { method: 'POST', body: JSON.stringify(payload) }, true),

@@ -3,11 +3,29 @@ from sqlalchemy.orm import Session
 
 from app.models import FleetCommand, GPSIntegrationEvent, User
 from app.services.enterprise_utils import now_utc, to_json
+from app.services.gps_tracking_service import record_gps_ingest
 from app.services.notification_service import create_notification
 
 
 def ingest_gps_event(db: Session, user: User, payload) -> GPSIntegrationEvent:
     event_id = payload.payload.get("event_id") if isinstance(payload.payload, dict) else None
+    if payload.truck_id and payload.latitude is not None and payload.longitude is not None:
+        result = record_gps_ingest(
+            db,
+            company_id=user.company_id,
+            created_by=user.id,
+            provider=payload.provider,
+            event_id=event_id or f"enterprise-{payload.provider}-{payload.truck_id}-{now_utc().timestamp()}",
+            truck_id=payload.truck_id,
+            trip_id=payload.trip_id,
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            speed_kmh=payload.speed_kmh,
+            payload=payload.payload,
+        )
+        event = db.get(GPSIntegrationEvent, result["integration_event_id"])
+        if event:
+            return event
     if event_id:
         existing = db.scalar(select(GPSIntegrationEvent).where(
             GPSIntegrationEvent.company_id == user.company_id,

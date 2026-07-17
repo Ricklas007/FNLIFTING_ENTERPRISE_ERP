@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Database, Map, RefreshCw, Trash2, Truck } from 'lucide-react'
 
 import { api, ApiError, apiUrl, tokenStore } from '@/services/api'
-import type { GPSPosition } from '@/types'
+import type { GeofenceRecord, GPSPosition, GPSReplayData } from '@/types'
 
 declare global {
   interface Window {
@@ -110,6 +110,38 @@ function fallbackPosition(position: GPSPosition) {
   return { left: `${x}%`, top: `${y}%` }
 }
 
+function circlePolygon(center: [number, number], radiusMeters: number) {
+  const points: [number, number][] = []
+  const earth = 6371000
+  const lat = center[1] * Math.PI / 180
+  const lon = center[0] * Math.PI / 180
+  for (let index = 0; index <= 64; index += 1) {
+    const bearing = (index / 64) * Math.PI * 2
+    const angular = radiusMeters / earth
+    const pointLat = Math.asin(Math.sin(lat) * Math.cos(angular) + Math.cos(lat) * Math.sin(angular) * Math.cos(bearing))
+    const pointLon = lon + Math.atan2(Math.sin(bearing) * Math.sin(angular) * Math.cos(lat), Math.cos(angular) - Math.sin(lat) * Math.sin(pointLat))
+    points.push([pointLon * 180 / Math.PI, pointLat * 180 / Math.PI])
+  }
+  return [points]
+}
+
+function geofenceFeature(item: GeofenceRecord) {
+  const geometry = item.geometry || {}
+  const raw = (geometry.center || geometry.coordinates) as unknown
+  if ((item.shape_type === 'circle' || item.shape_type === 'point') && Array.isArray(raw) && raw.length >= 2) {
+    return {
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: circlePolygon([Number(raw[0]), Number(raw[1])], item.radius_meters || Number((geometry as Record<string, unknown>).radius_meters) || 75) },
+      properties: { name: item.name, geofence_type: item.geofence_type, shape_type: item.shape_type },
+    }
+  }
+  if (Array.isArray(raw)) {
+    const coordinates = Array.isArray(raw[0]?.[0]) ? raw : [raw]
+    return { type: 'Feature', geometry: { type: 'Polygon', coordinates }, properties: { name: item.name, geofence_type: item.geofence_type, shape_type: item.shape_type } }
+  }
+  return null
+}
+
 function chooseInitialProvider(status: MapStatus) {
   const active = status.active_package
   if (status.mode === 'offline') return active ? 'offline' : 'unavailable'
@@ -127,10 +159,11 @@ function offlineStyle(active: MapPackage) {
   throw new Error('PMTiles importado: provider preparado, mas exige stylesheet/layers do pacote antes de renderizar.')
 }
 
-export function RealFleetMap({ positions, onMarkerClick }: { positions: GPSPosition[]; onMarkerClick?: (position: GPSPosition) => void }) {
+export function RealFleetMap({ positions, geofences = [], replay = null, onMarkerClick }: { positions: GPSPosition[]; geofences?: GeofenceRecord[]; replay?: GPSReplayData | null; onMarkerClick?: (position: GPSPosition) => void }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
+  const [mapReady, setMapReady] = useState(0)
   const [status, setStatus] = useState<MapStatus | null>(null)
   const [providerLabel, setProviderLabel] = useState('ONLINE_RASTER')
   const [error, setError] = useState<string | null>(null)
@@ -173,6 +206,7 @@ export function RealFleetMap({ positions, onMarkerClick }: { positions: GPSPosit
           },
         })
         mapRef.current.addControl(new window.maplibregl.NavigationControl({ visualizePitch: true }), 'top-right')
+        mapRef.current.on('load', () => setMapReady(Date.now()))
         let switchedToOffline = false
         mapRef.current.on('error', () => {
           if (mapStatus.mode !== 'auto' || !active || switchedToOffline || selected !== 'online') return
@@ -212,6 +246,32 @@ export function RealFleetMap({ positions, onMarkerClick }: { positions: GPSPosit
     })
   }, [positions, onMarkerClick])
 
+  useEffect(() => {
+    if (!mapRef.current || !window.maplibregl || !mapReady) return
+    const map = mapRef.current
+    const features = geofences.map(geofenceFeature).filter(Boolean)
+    const geofenceSource = { type: 'FeatureCollection', features }
+    if (map.getSource('fnl-geofences')) {
+      map.getSource('fnl-geofences').setData(geofenceSource)
+    } else {
+      map.addSource('fnl-geofences', { type: 'geojson', data: geofenceSource })
+      map.addLayer({ id: 'fnl-geofences-fill', type: 'fill', source: 'fnl-geofences', paint: { 'fill-color': '#1d9bf0', 'fill-opacity': 0.12 } })
+      map.addLayer({ id: 'fnl-geofences-line', type: 'line', source: 'fnl-geofences', paint: { 'line-color': '#38bdf8', 'line-width': 2, 'line-dasharray': [2, 1] } })
+    }
+
+    const coordinates = replay?.positions?.map((point) => [point.longitude, point.latitude]) ?? []
+    const replaySource = {
+      type: 'FeatureCollection',
+      features: coordinates.length >= 2 ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: { count: coordinates.length } }] : [],
+    }
+    if (map.getSource('fnl-replay')) {
+      map.getSource('fnl-replay').setData(replaySource)
+    } else {
+      map.addSource('fnl-replay', { type: 'geojson', data: replaySource })
+      map.addLayer({ id: 'fnl-replay-line', type: 'line', source: 'fnl-replay', paint: { 'line-color': '#f59e0b', 'line-width': 4, 'line-opacity': 0.78 } })
+    }
+  }, [geofences, replay, mapReady])
+
   return (
     <div className="real-map-shell">
       <div ref={containerRef} className="real-map-container" />
@@ -231,6 +291,7 @@ export function RealFleetMap({ positions, onMarkerClick }: { positions: GPSPosit
       <div className="map-legend real">
         <span><i /> GPS em tempo real</span>
         <span><i /> {providerLabel}</span>
+        <span><i /> {geofences.length} geofence(s)</span>
       </div>
     </div>
   )

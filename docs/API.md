@@ -71,6 +71,18 @@ O portal externo recebe apenas equipamentos e certificados associados ao seu `cl
 | `GET` | `/api/v1/fleet/gps/live` | `fleet.view` | Última posição conhecida por camião |
 | `GET` | `/api/v1/fleet/gps/trips/{id}` | `fleet.view` | Timeline GPS de uma viagem |
 | `POST` | `/api/v1/fleet/gps/positions` | `fleet.manage` | Recebe latitude, longitude, velocidade, direção e combustível |
+| `GET/POST` | `/api/v1/fleet/gps/devices` | `fleet.view/manage` | Lista ou regista trackers GPS com token próprio |
+| `POST` | `/api/v1/fleet/gps/devices/{id}/rotate-token` | `fleet.manage` | Roda token de dispositivo GPS |
+| `POST` | `/api/v1/fleet/gps/ingest` | `X-GPS-Device-Token` | Ingestão GPS segura sem login humano |
+| `GET` | `/api/v1/fleet/gps/history` | `fleet.view` | Histórico filtrado e paginado de posições |
+| `GET` | `/api/v1/fleet/gps/replay` | `fleet.view` | Replay de rota por camião ou viagem |
+| `GET` | `/api/v1/fleet/gps/export.geojson` | `fleet.view` | Exporta rota e pontos em GeoJSON |
+| `GET` | `/api/v1/fleet/gps/stream` | `fleet.view` | Snapshot SSE para atualizações de mapa |
+| `GET/POST` | `/api/v1/fleet/geofences` | `fleet.view/manage` | Lista ou cria geofences reais |
+| `PATCH` | `/api/v1/fleet/geofences/{id}` | `fleet.manage` | Atualiza geofence |
+| `GET/POST` | `/api/v1/fleet/alert-rules` | `fleet.view/manage` | Lista ou cria regras de alerta |
+| `GET` | `/api/v1/fleet/alerts` | `fleet.view` | Lista alertas deduplicados |
+| `POST` | `/api/v1/fleet/alerts/{id}/resolve` | `fleet.manage` | Resolve alerta de frota |
 | `GET` | `/api/v1/fleet/fuel-records` | `fleet.view` | Registos de abastecimento |
 | `GET` | `/api/v1/fleet/incidents` | `fleet.view` | Incidentes operacionais |
 

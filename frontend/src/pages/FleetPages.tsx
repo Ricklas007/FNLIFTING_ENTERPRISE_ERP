@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { ErrorBanner, hasPermission, LoadingRows, Modal, PageHeader, SubmitButton } from '@/pages/HRPages'
 import { api, ApiError } from '@/services/api'
 import { useAuth } from '@/store/AuthContext'
-import type { Client, Driver, FleetIncident, FleetSummary, GPSPosition, TripRecord, TruckRecord } from '@/types'
+import type { Client, Driver, FleetAlertRecord, FleetIncident, FleetSummary, GeofenceRecord, GPSPosition, GPSReplayData, TripRecord, TruckRecord } from '@/types'
 
 const fleetLabels: Record<string, string> = {
   available: 'Disponível',
@@ -235,6 +235,9 @@ export function TripsPage() {
   const [trucks, setTrucks] = useState<TruckRecord[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [clients, setClients] = useState<Client[]>([])
+  const [geofences, setGeofences] = useState<GeofenceRecord[]>([])
+  const [alerts, setAlerts] = useState<FleetAlertRecord[]>([])
+  const [replay, setReplay] = useState<GPSReplayData | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -244,13 +247,15 @@ export function TripsPage() {
     setLoading(true)
     setError(null)
     try {
-      const [tripRows, live, issueRows, vehicles, people, companies] = await Promise.all([
+      const [tripRows, live, issueRows, vehicles, people, companies, fenceRows, alertRows] = await Promise.all([
         api.trips(),
         api.livePositions(),
         api.incidents(),
         api.trucks(),
         api.drivers(),
         api.clients(),
+        api.geofences(),
+        api.fleetAlerts(),
       ])
       setTrips(tripRows)
       setPositions(live)
@@ -258,6 +263,8 @@ export function TripsPage() {
       setTrucks(vehicles)
       setDrivers(people)
       setClients(companies)
+      setGeofences(fenceRows)
+      setAlerts(alertRows)
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : 'Falha ao carregar viagens e GPS.')
     } finally {
@@ -300,6 +307,29 @@ export function TripsPage() {
     }
   }
 
+  async function loadReplay(item: TripRecord) {
+    setBusyId(item.id)
+    try {
+      setReplay(await api.gpsReplay(`trip_id=${encodeURIComponent(item.id)}`))
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'Não foi possível carregar o replay GPS.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function resolveAlert(item: FleetAlertRecord) {
+    setBusyId(item.id)
+    try {
+      await api.resolveFleetAlert(item.id)
+      setAlerts(await api.fleetAlerts())
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'Não foi possível resolver o alerta.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <>
       <PageHeader eyebrow="Frota · GPS" title="Viagens em tempo real" description="Planeamento, carga, rota, última posição conhecida e incidentes operacionais num mapa geográfico real." action={canManage && <button className="module-primary-button" onClick={() => setFormOpen(true)}><Plus /> Nova viagem</button>} />
@@ -309,18 +339,23 @@ export function TripsPage() {
           <div className="gps-layout">
             <section className="gps-map-panel">
               <header><div><Radio /><p><strong>Monitorização GPS</strong><small>{positions.length} camiões com sinal</small></p></div><span>MAPLIBRE</span></header>
-              <RealFleetMap positions={positions} onMarkerClick={(position) => void simulate(position)} />
+              <RealFleetMap positions={positions} geofences={geofences} replay={replay} onMarkerClick={(position) => void simulate(position)} />
               <footer>{positions.map((item) => <div key={item.id}><span><Truck /></span><p><strong>{item.truck.plate}</strong><small>{item.truck.driver?.full_name || 'Sem motorista'}</small></p><b>{Math.round(item.speed_kmh)} km/h</b><small>{new Date(item.recorded_at).toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' })}</small></div>)}</footer>
             </section>
             <aside className="trip-stream">
               <header><h2>Operações de transporte</h2><span>{trips.length} viagens</span></header>
-              {trips.map((item) => <article key={item.id}><header><strong>{item.trip_code}</strong><FleetStatus value={item.status} /></header><div className="trip-route"><span>{item.origin}</span><i><Navigation /></i><span>{item.destination}</span></div><p><Truck /> {item.truck.plate}<span>·</span><UserRound /> {item.driver.full_name}</p><p><Fuel /> {item.fuel_type || 'Carga'} · {item.quantity_liters?.toLocaleString('pt-AO') || '—'} L</p>{canManage && <footer>{item.status === 'planned' && <button disabled={busyId === item.id} onClick={() => void setStatus(item, 'in_progress')}>Iniciar viagem</button>}{item.status === 'in_progress' && <button disabled={busyId === item.id} onClick={() => void setStatus(item, 'delivered')}>Confirmar entrega</button>}</footer>}</article>)}
+              {trips.map((item) => <article key={item.id}><header><strong>{item.trip_code}</strong><FleetStatus value={item.status} /></header><div className="trip-route"><span>{item.origin}</span><i><Navigation /></i><span>{item.destination}</span></div><p><Truck /> {item.truck.plate}<span>·</span><UserRound /> {item.driver.full_name}</p><p><Fuel /> {item.fuel_type || 'Carga'} · {item.quantity_liters?.toLocaleString('pt-AO') || '—'} L</p><footer><button disabled={busyId === item.id} onClick={() => void loadReplay(item)}>Replay GPS</button>{canManage && item.status === 'planned' && <button disabled={busyId === item.id} onClick={() => void setStatus(item, 'in_progress')}>Iniciar viagem</button>}{canManage && item.status === 'in_progress' && <button disabled={busyId === item.id} onClick={() => void setStatus(item, 'delivered')}>Confirmar entrega</button>}</footer></article>)}
             </aside>
             <section className="incident-strip">
               <header><AlertTriangle /><p><strong>Incidentes e alertas</strong><small>Acompanhamento operacional</small></p></header>
               {incidents.length ? incidents.map((item) => <article key={item.id}><FleetStatus value={item.status} /><strong>{item.incident_type}</strong><span>{item.location}</span><p>{item.description}</p></article>) : <p>Sem incidentes ativos.</p>}
             </section>
           </div>
+          <section className="gps-command-center-strip">
+            <article><header><Navigation /><p><strong>Replay carregado</strong><small>{replay ? `${replay.count} ponto(s), ${replay.stops.length} paragem(ns)` : 'Selecione uma viagem para replay.'}</small></p></header>{replay && <button className="module-secondary-button" onClick={() => setReplay(null)}>Limpar replay</button>}</article>
+            <article><header><AlertTriangle /><p><strong>Alertas abertos</strong><small>{alerts.length} evento(s) por resolver</small></p></header>{alerts.slice(0, 4).map((item) => <button key={item.id} className="fleet-alert-pill" onClick={() => void resolveAlert(item)}><span>{item.severity}</span>{item.title}</button>)}</article>
+            <article><header><Radio /><p><strong>Geofences ativas</strong><small>{geofences.filter((item) => item.status === 'active').length} área(s)</small></p></header>{geofences.slice(0, 4).map((item) => <span key={item.id} className="geofence-pill">{item.geofence_type} · {item.name}</span>)}</article>
+          </section>
           <OfflineMapManager />
         </>
       )}

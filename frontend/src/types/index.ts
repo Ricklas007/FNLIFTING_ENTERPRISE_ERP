@@ -370,6 +370,53 @@ export interface FleetIncident {
   status: string
 }
 
+export interface GeofenceRecord {
+  id: string
+  name: string
+  geofence_type: string
+  shape_type: 'circle' | 'polygon' | 'corridor' | 'point'
+  geometry: Record<string, unknown>
+  radius_meters?: number
+  alert_on_enter: boolean
+  alert_on_exit: boolean
+  dwell_minutes?: number
+  status: string
+  created_at: string
+}
+
+export interface FleetAlertRecord {
+  id: string
+  truck_id?: string
+  trip_id?: string
+  alert_type: string
+  severity: 'info' | 'warning' | 'critical'
+  title: string
+  message: string
+  status: string
+  triggered_at: string
+  resolved_at?: string
+  payload: Record<string, unknown>
+}
+
+export interface GPSReplayData {
+  mode: string
+  count: number
+  bounds?: [number, number, number, number]
+  positions: {
+    id: string
+    truck_id: string
+    trip_id?: string
+    latitude: number
+    longitude: number
+    speed_kmh: number
+    heading?: number
+    vehicle_state: string
+    fuel_level_percent?: number
+    recorded_at: string
+  }[]
+  stops: Record<string, unknown>[]
+}
+
 export interface AssetRecord {
   id: string
   asset_code: string
