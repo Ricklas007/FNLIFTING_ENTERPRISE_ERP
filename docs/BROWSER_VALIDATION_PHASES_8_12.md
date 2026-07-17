@@ -1,16 +1,17 @@
 # Validação Browser/API — Fases 8–12
 
-Data: 2026-07-12
+Data: 2026-07-17
 Ambiente: Windows local, backend FastAPI em `127.0.0.1:8000`, frontend Vite em `127.0.0.1:5173`.
 
 ## Serviços locais
 
 | Check | Resultado |
 |---|---|
-| Backend `/health` | 200 |
-| Backend `/ready` | 200, `status=ready` |
-| Frontend Vite `/` | 200 |
-| Frontend build | `npm run build` passou |
+| Backend `/ready` | 200, `status=ready`, `pass=10`, `warn=1`, `fail=0` |
+| Frontend Vite `/` | 200, shell React servido com `#root` e módulo Vite |
+| Frontend build | `npm --prefix frontend run build` passou |
+| Desktop standalone smoke | passou em runtime temporário, `win-unpacked` e instalação por utilizador |
+| Android Capacitor sync | `npx cap sync android` passou |
 
 ## Tentativa de validação visual
 
@@ -18,14 +19,13 @@ Foi usada a skill `browser:control-in-app-browser` conforme instrução do ambie
 
 Resultado:
 
-- runtime do browser inicializado;
-- documentação do browser lida;
-- troubleshooting lido após falha;
-- visibilidade do browser ativada;
-- duas tentativas de abrir `http://127.0.0.1:5173` falharam por impossibilidade de anexar a webview local;
+- runtime do browser foi inicializado;
+- a documentação do browser foi lida;
+- a tentativa de abrir `http://127.0.0.1:5173` falhou por impossibilidade de anexar a webview local;
+- após reset do REPL, o helper `browser` deixou de estar disponível (`NO_BROWSER_HELPER`);
 - Playwright local não está instalado em `frontend/node_modules`.
 
-Conclusão: validação visual desktop/mobile real ficou `BLOCKED_BY_ENVIRONMENT`, não concluída.
+Conclusão: validação visual desktop/tablet/mobile real ficou `BLOCKED_BY_ENVIRONMENT`, não concluída. Este bloqueio é do ambiente de automação/browser, não do backend nem do build frontend.
 
 ## Validação funcional autenticada por HTTP/API
 
@@ -33,17 +33,23 @@ Login usado: conta demo interna documentada, somente contra `localhost`.
 
 | Módulo | Endpoint | Resultado |
 |---|---|---|
-| Shell frontend | `GET http://127.0.0.1:5173` | 200 |
+| Login staff | `POST /api/v1/auth/login` | 200, token emitido |
 | Readiness | `GET /ready` | 200 |
-| Fase 8 overview | `GET /api/v1/enterprise/overview` | 200 |
-| Fase 8 notificações | `GET /api/v1/enterprise/notifications` | 200 |
-| Fase 9 command center | `GET /api/v1/enterprise/fleet/command-center` | 200 |
-| Fase 10 providers | `GET /api/v1/enterprise/ai/providers` | 200 |
-| Fase 10 automation | `GET /api/v1/enterprise/ai/automation` | 200 |
-| Fase 11 portal trabalhador | `GET /api/v1/enterprise/hr/employee-portal` | 200 |
-| Fase 12 BI executivo | `GET /api/v1/enterprise/bi/executive` | 200 |
-| Fase 12 compliance | `GET /api/v1/enterprise/compliance` | 200 |
-| Fase 12 licença SaaS | `GET /api/v1/enterprise/saas/license` | 200 |
+| Fleet compliance | `GET /api/v1/enterprise/fleet/compliance` | 200 |
+| GPS history | `GET /api/v1/fleet/gps/history?limit=5` | 200 |
+| GPS GeoJSON | `GET /api/v1/fleet/gps/export.geojson?truck_id=validation-empty-truck` | 200 |
+| AI assistant | `GET /api/v1/enterprise/ai/assistant` | 200 |
+| HR organograma | `GET /api/v1/enterprise/hr/org-chart` | 200 |
+
+## Validação Android final
+
+O passo final Android foi retomado após as prioridades desktop, mapas, GPS e Fases 8–12:
+
+- `.runtime/downloads/microsoft-jdk17-windows-x64.zip.part` foi preservado e retomado parcialmente;
+- `npx cap sync android` concluiu com sucesso;
+- `android/gradlew.bat assembleDebug` não gerou APK porque o ambiente não tem `JAVA_HOME`, `java` no `PATH`, nem Android SDK/Android Studio instalados.
+
+Conclusão Android: `BLOCKED_BY_ENVIRONMENT`. Não há APK validado nesta máquina.
 
 ## Pendência
 
@@ -51,4 +57,6 @@ Reexecutar a validação visual quando o ambiente tiver:
 
 1. browser integrado a anexar webview local, ou
 2. Playwright instalado com browsers headless, ou
-3. navegador manual disponível para validar desktop/mobile.
+3. navegador manual disponível para validar desktop/tablet/mobile.
+
+Para gerar APK real, instalar JDK 17 e Android SDK/Android Studio, ou concluir o download portátil do JDK e disponibilizar um SDK Android válido.

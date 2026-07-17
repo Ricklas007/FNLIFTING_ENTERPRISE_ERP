@@ -85,7 +85,7 @@ npm run android:build:portable
 | `backend/.venv/Scripts/python.exe -m pytest tests/test_auth_dashboard.py tests/test_public_certificate_validation.py` | passou | 11 testes passaram. |
 | `backend/.venv/Scripts/python.exe -m alembic current` | passou | Banco em `20260717_0004 (head)`. |
 | `backend/.venv/Scripts/python.exe -m alembic heads` | passou | Head unico `20260717_0004 (head)`. |
-| `scripts/prod-preflight.ps1 -SkipTests -SkipFrontendBuild` | passou | Ready com 11 OK, 0 avisos e 0 falhas. |
+| `backend/.venv/Scripts/python.exe tools/preflight.py --json` | passou | Ready com 10 OK, 1 aviso de backup antigo e 0 falhas. |
 | `/ready` em backend temporario local | passou | `status=ready`, versao `0.12.1`, 10 OK, 1 aviso de backup antigo no banco dev e 0 falhas. |
 | `npm run desktop:backend:smoke` | passou | Backend standalone: migrate, seed, serve e `/ready` em runtime temporario, incluindo migration `20260717_0004`. |
 | `npx electron-builder --dir --publish never` | passou | Gerou `release/win-unpacked` 0.12.1 com backend standalone e sem `.venv`. |
@@ -95,8 +95,9 @@ npm run android:build:portable
 | Smoke instalado 0.12.1 por utilizador | passou | 3 ciclos com executavel instalado em `%LOCALAPPDATA%\Programs`. |
 | Smoke com `userData` real | passou | Migration idempotente, backup pre-migration e `DESKTOP_READY`. |
 | `backend/.venv/Scripts/python.exe -m pytest backend/tests -q` | passou | 27 testes passaram. |
-| `npm run android:build` | depende do ambiente | Usa `JAVA_HOME`, `javac` no PATH, Android Studio JBR ou JDK local em `.runtime/android-jdk`. |
-| `npm run android:build:portable` | disponivel | Baixa/retoma JDK 17 para `.runtime/android-jdk` e executa `mobile:sync` + Gradle sem instalacao global de Java. |
+| `npx cap sync android` | passou | Assets web sincronizados para `android/app/src/main/assets/public`. |
+| `android/gradlew.bat assembleDebug` | bloqueado por ambiente | `JAVA_HOME` nao esta definido e nao existe `java` no PATH. Android SDK/Android Studio tambem nao esta instalado. |
+| `npm run android:build:portable` | parcialmente retomado | Download parcial do JDK preservado em `.runtime/downloads`; sem Android SDK nao ha APK validado nesta maquina. |
 
 Nota: a instalacao all-users em `C:\Program Files\FNLIFTING ENTERPRISE ERP` requer execucao do instalador como Administrador. Sem elevacao/UAC, a validacao funcional desta execucao usa a instalacao por utilizador em `%LOCALAPPDATA%\Programs\FNLIFTING ENTERPRISE ERP`.
 
