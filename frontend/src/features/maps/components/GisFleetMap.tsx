@@ -6,9 +6,10 @@ import { Protocol } from 'pmtiles'
 import { AlertTriangle, Database, Map, MapPin, RefreshCw, Satellite, Trash2, Truck } from 'lucide-react'
 
 import { api, ApiError, tokenStore } from '@/services/api'
-import type { GeofenceRecord, GPSPosition, GPSReplayData } from '@/types'
+import type { GeofenceRecord, GPSPosition, GPSReplayData, MapPlaceResult } from '@/types'
 
 import { offlineFallbackProvider, resolveMapProvider } from '../providers/mapProvider'
+import { GoogleMapsOnlineProvider } from '../providers/GoogleMapsOnlineProvider'
 import { onlineRasterStyle, styleForOfflinePackage } from '../providers/mapStyles'
 import type { MapMode, MapPackage, MapStatus, ResolvedMapProvider } from '../types'
 
@@ -92,14 +93,41 @@ function setMapData(map: MapLibreMap, sourceId: string, data: maplibregl.GeoJSON
   else map.addSource(sourceId, { type: 'geojson', data })
 }
 
+const PLACE_CATEGORIES = [
+  { value: '', label: 'Categoria livre' },
+  { value: 'posto de combustível', label: 'Postos de combustível' },
+  { value: 'terminal logístico', label: 'Terminais logísticos' },
+  { value: 'oficina mecânica', label: 'Oficinas' },
+  { value: 'hospital', label: 'Hospitais' },
+  { value: 'base operacional', label: 'Bases operacionais' },
+  { value: 'cliente industrial', label: 'Clientes industriais' },
+]
+
+function geofenceTypeForPlace(place: MapPlaceResult) {
+  const value = `${place.category || ''} ${place.title || ''}`.toLowerCase()
+  if (value.includes('combust') || value.includes('gas') || value.includes('fuel')) return 'FUEL_STATION'
+  if (value.includes('hospital') || value.includes('clínica') || value.includes('clinica')) return 'CHECKPOINT'
+  if (value.includes('oficina') || value.includes('garage') || value.includes('mec')) return 'CHECKPOINT'
+  if (value.includes('terminal') || value.includes('porto') || value.includes('log')) return 'TERMINAL'
+  if (value.includes('cliente') || value.includes('customer')) return 'CLIENT'
+  return 'CHECKPOINT'
+}
+
 export function RealFleetMap({ positions, geofences = [], replay = null, onMarkerClick }: { positions: GPSPosition[]; geofences?: GeofenceRecord[]; replay?: GPSReplayData | null; onMarkerClick?: (position: GPSPosition) => void }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const markersRef = useRef<Marker[]>([])
+  const placeMarkerRef = useRef<Marker | null>(null)
   const [mapReady, setMapReady] = useState(0)
   const [status, setStatus] = useState<MapStatus | null>(null)
   const [provider, setProvider] = useState<ResolvedMapProvider | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [placeQuery, setPlaceQuery] = useState('')
+  const [placeCategory, setPlaceCategory] = useState('')
+  const [placeResults, setPlaceResults] = useState<MapPlaceResult[]>([])
+  const [placeBusy, setPlaceBusy] = useState(false)
+  const [placeError, setPlaceError] = useState<string | null>(null)
+  const [placeMessage, setPlaceMessage] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -111,7 +139,8 @@ export function RealFleetMap({ positions, geofences = [], replay = null, onMarke
         const selected = resolveMapProvider(mapStatus)
         setProvider(selected)
         if (selected.kind === 'GOOGLE_ONLINE') {
-          throw new Error('Google Maps online está configurado como provider externo, mas esta página usa MapLibre. Ative MapLibre online ou offline para renderizar aqui.')
+          setMapReady(Date.now())
+          return
         }
         const style = styleForProvider(selected)
         if (!containerRef.current || cancelled) return
@@ -155,10 +184,94 @@ export function RealFleetMap({ positions, geofences = [], replay = null, onMarke
     void boot()
     return () => {
       cancelled = true
+      placeMarkerRef.current?.remove()
+      placeMarkerRef.current = null
       markersRef.current.forEach((marker) => marker.remove())
       markersRef.current = []
       mapRef.current?.remove()
       mapRef.current = null
+    }
+  }, [])
+
+  const searchPlaces = useCallback(async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault()
+    const query = placeQuery.trim()
+    if (!query) return
+    setPlaceBusy(true)
+    setPlaceError(null)
+    setPlaceMessage(null)
+    try {
+      const params = new URLSearchParams({
+        query,
+        language: 'pt',
+        country: 'ao',
+        limit: '8',
+      })
+      if (placeCategory) params.set('category', placeCategory)
+      const map = mapRef.current
+      if (map) {
+        const center = map.getCenter()
+        params.set('latitude', String(center.lat))
+        params.set('longitude', String(center.lng))
+        params.set('zoom', String(Math.round(map.getZoom())))
+      }
+      const rows = await api.searchMapPlaces(params)
+      setPlaceResults(rows)
+      if (!rows.length) setPlaceMessage('Nenhum local encontrado para esta pesquisa.')
+    } catch (reason) {
+      setPlaceResults([])
+      setPlaceError(reason instanceof ApiError ? reason.message : 'Não foi possível pesquisar locais.')
+    } finally {
+      setPlaceBusy(false)
+    }
+  }, [placeCategory, placeQuery])
+
+  const showPlace = useCallback((place: MapPlaceResult) => {
+    const map = mapRef.current
+    if (!map) {
+      setPlaceError('Para mostrar o ponto no mapa, use o provider MapLibre online/offline nesta vista.')
+      return
+    }
+    const center: [number, number] = [place.longitude, place.latitude]
+    map.flyTo({ center, zoom: Math.max(map.getZoom(), 12.5), essential: true })
+    placeMarkerRef.current?.remove()
+    const element = document.createElement('button')
+    element.type = 'button'
+    element.className = 'map-place-marker'
+    element.title = place.title
+    element.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"/></svg>'
+    placeMarkerRef.current = new maplibregl.Marker({ element }).setLngLat(center).addTo(map)
+    setPlaceError(null)
+    setPlaceMessage(`${place.title} marcado no mapa.`)
+  }, [])
+
+  const savePlace = useCallback(async (place: MapPlaceResult) => {
+    setPlaceBusy(true)
+    setPlaceError(null)
+    setPlaceMessage(null)
+    try {
+      await api.createGeofence({
+        name: place.title,
+        geofence_type: geofenceTypeForPlace(place),
+        shape_type: 'point',
+        geometry: {
+          center: [place.longitude, place.latitude],
+          source: place.source,
+          external_id: place.external_id,
+          address: place.address,
+          category: place.category,
+          retrieved_at: place.retrieved_at,
+        },
+        radius_meters: 120,
+        alert_on_enter: true,
+        alert_on_exit: false,
+        status: 'active',
+      })
+      setPlaceMessage(`${place.title} guardado como ponto operacional.`)
+    } catch (reason) {
+      setPlaceError(reason instanceof ApiError ? reason.message : 'Não foi possível guardar o ponto operacional.')
+    } finally {
+      setPlaceBusy(false)
     }
   }, [])
 
@@ -206,7 +319,44 @@ export function RealFleetMap({ positions, geofences = [], replay = null, onMarke
 
   return (
     <div className="real-map-shell">
-      <div ref={containerRef} className="real-map-container" />
+      {provider?.kind === 'GOOGLE_ONLINE'
+        ? <GoogleMapsOnlineProvider status={status} positions={positions} onMarkerClick={onMarkerClick} />
+        : <div ref={containerRef} className="real-map-container" />}
+      {provider?.kind !== 'GOOGLE_ONLINE' && (
+        <form className="map-place-search" onSubmit={searchPlaces}>
+          <div className="map-place-search-row">
+            <label>
+              <span>Pesquisa auxiliar SerpApi</span>
+              <input value={placeQuery} onChange={(event) => setPlaceQuery(event.target.value)} placeholder="Ex.: Sonangol, porto, oficina, hospital..." />
+            </label>
+            <label>
+              <span>Categoria</span>
+              <select value={placeCategory} onChange={(event) => setPlaceCategory(event.target.value)}>
+                {PLACE_CATEGORIES.map((item) => <option key={item.value || 'all'} value={item.value}>{item.label}</option>)}
+              </select>
+            </label>
+            <button type="submit" disabled={placeBusy || !placeQuery.trim()}>{placeBusy ? 'A pesquisar...' : 'Pesquisar'}</button>
+          </div>
+          {(placeError || placeMessage || placeResults.length > 0) && (
+            <div className="map-place-results">
+              {placeError && <p className="map-place-error">{placeError}</p>}
+              {placeMessage && <p className="map-place-message">{placeMessage}</p>}
+              {placeResults.map((place) => (
+                <article key={place.external_id}>
+                  <MapPin />
+                  <div>
+                    <strong>{place.title}</strong>
+                    <span>{place.category || 'local'}{place.address ? ` · ${place.address}` : ''}</span>
+                    <small>{place.latitude.toFixed(5)}, {place.longitude.toFixed(5)} · {place.source}</small>
+                  </div>
+                  <button type="button" onClick={() => showPlace(place)}>Mostrar</button>
+                  <button type="button" onClick={() => void savePlace(place)} disabled={placeBusy}>Guardar</button>
+                </article>
+              ))}
+            </div>
+          )}
+        </form>
+      )}
       {error && (
         <div className="map-unavailable-panel">
           <AlertTriangle />

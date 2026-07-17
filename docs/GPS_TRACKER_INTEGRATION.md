@@ -26,12 +26,35 @@ Providers registados:
 | Provider | Estado sem configuração externa | Observação |
 |---|---|---|
 | `HTTP_TRACKER` | `CONNECTED` | Endpoint local tokenizado `/fleet/gps/ingest`. |
-| `TRACCAR` | `DISCONNECTED` ou `CONFIGURED_NOT_TESTED` | Usa `TRACCAR_ENABLED`, `TRACCAR_URL`, `TRACCAR_USERNAME`/`TRACCAR_PASSWORD` ou `TRACCAR_TOKEN`. |
+| `TRACCAR` | `DISCONNECTED`, `AUTH_ERROR` ou `CONNECTED` | Usa `TRACCAR_ENABLED`, `TRACCAR_BASE_URL`/`TRACCAR_URL`, `TRACCAR_USERNAME`/`TRACCAR_PASSWORD` ou `TRACCAR_TOKEN`. |
 | `VENDOR_CLOUD` | `DISCONNECTED` | Requer API/credenciais reais do fabricante. IMEI/serial não é autenticação. |
 | `MQTT_TRACKER` | `DISCONNECTED` | Requer broker real e worker dedicado. |
 | `MANUAL_IMPORT` | `CONFIGURED_NOT_TESTED` | Recuperação/histórico, não tempo real. |
 
 O endpoint de health do Traccar testa `/api/server` quando as variáveis estão configuradas e classifica `CONNECTED`, `AUTH_ERROR` ou `DISCONNECTED` sem expor credenciais.
+
+## Traccar oficial
+
+Endpoints adicionais:
+
+- `GET /api/v1/integrations/traccar/status`
+- `POST /api/v1/integrations/traccar/test`
+- `GET /api/v1/integrations/traccar/devices`
+- `POST /api/v1/integrations/traccar/import-devices`
+- `POST /api/v1/integrations/traccar/link-device`
+
+Variáveis backend:
+
+```env
+TRACCAR_ENABLED=false
+TRACCAR_BASE_URL=
+TRACCAR_USERNAME=
+TRACCAR_PASSWORD=
+TRACCAR_TOKEN=
+TRACCAR_TIMEOUT=8
+```
+
+Sem configuração, o estado é `DISCONNECTED` e o sistema não inventa posições. A importação cria dispositivos locais associados ao provider `TRACCAR`; a ligação a camião é feita explicitamente por `link-device`.
 
 ## Payload mínimo
 

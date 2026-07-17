@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { ErrorBanner, hasPermission, LoadingRows, Modal, PageHeader, SubmitButton } from '@/pages/HRPages'
 import { api, ApiError } from '@/services/api'
 import { useAuth } from '@/store/AuthContext'
-import type { Client, Driver, FleetAlertRecord, FleetIncident, FleetSummary, GeofenceRecord, GPSPosition, GPSProviderHealth, GPSProviderRecord, GPSReplayData, TripRecord, TruckRecord } from '@/types'
+import type { Client, Driver, FleetAlertRecord, FleetIncident, FleetSummary, GeofenceRecord, GPSPosition, GPSProviderHealth, GPSProviderRecord, GPSReplayData, GPSTrackerDeviceRecord, TraccarDevice, TraccarStatus, TripRecord, TruckRecord } from '@/types'
 
 const fleetLabels: Record<string, string> = {
   available: 'Disponível',
@@ -239,6 +239,11 @@ export function TripsPage() {
   const [alerts, setAlerts] = useState<FleetAlertRecord[]>([])
   const [providers, setProviders] = useState<GPSProviderRecord[]>([])
   const [providerHealth, setProviderHealth] = useState<Record<string, GPSProviderHealth>>({})
+  const [gpsDevices, setGpsDevices] = useState<GPSTrackerDeviceRecord[]>([])
+  const [traccarStatus, setTraccarStatus] = useState<TraccarStatus | null>(null)
+  const [traccarDevices, setTraccarDevices] = useState<TraccarDevice[]>([])
+  const [selectedTraccarDeviceId, setSelectedTraccarDeviceId] = useState('')
+  const [selectedTruckId, setSelectedTruckId] = useState('')
   const [selectedPosition, setSelectedPosition] = useState<GPSPosition | null>(null)
   const [replay, setReplay] = useState<GPSReplayData | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -250,7 +255,7 @@ export function TripsPage() {
     setLoading(true)
     setError(null)
     try {
-      const [tripRows, live, issueRows, vehicles, people, companies, fenceRows, alertRows, providerRows] = await Promise.all([
+      const [tripRows, live, issueRows, vehicles, people, companies, fenceRows, alertRows, providerRows, trackerRows, traccarInfo] = await Promise.all([
         api.trips(),
         api.livePositions(),
         api.incidents(),
@@ -260,6 +265,8 @@ export function TripsPage() {
         api.geofences(),
         api.fleetAlerts(),
         api.gpsProviders(),
+        api.gpsDevices(),
+        api.traccarStatus(),
       ])
       setTrips(tripRows)
       setPositions(live)
@@ -270,6 +277,9 @@ export function TripsPage() {
       setGeofences(fenceRows)
       setAlerts(alertRows)
       setProviders(providerRows)
+      setGpsDevices(trackerRows)
+      setTraccarStatus(traccarInfo)
+      if (!selectedTruckId && vehicles[0]) setSelectedTruckId(vehicles[0].id)
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : 'Falha ao carregar viagens e GPS.')
     } finally {
@@ -326,6 +336,65 @@ export function TripsPage() {
     }
   }
 
+  const selectedTraccarDevice = traccarDevices.find((item) => item.external_id === selectedTraccarDeviceId)
+  const selectedLocalTraccarDevice = selectedTraccarDevice
+    ? gpsDevices.find((item) => item.provider === 'TRACCAR' && (item.device_uid === selectedTraccarDevice.unique_id || item.device_uid === selectedTraccarDevice.external_id))
+    : null
+
+  async function testTraccarIntegration() {
+    setBusyId('TRACCAR_TEST')
+    try {
+      const result = await api.testTraccar()
+      setTraccarStatus(result)
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'Não foi possível testar o Traccar.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function loadTraccarDevices() {
+    setBusyId('TRACCAR_DEVICES')
+    try {
+      const rows = await api.traccarDevices()
+      setTraccarDevices(rows)
+      setSelectedTraccarDeviceId((current) => current || rows[0]?.external_id || '')
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'Não foi possível listar devices Traccar.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function importSelectedTraccar() {
+    const ids = selectedTraccarDeviceId ? [selectedTraccarDeviceId] : []
+    setBusyId('TRACCAR_IMPORT')
+    try {
+      await api.importTraccarDevices(ids)
+      setGpsDevices(await api.gpsDevices())
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'Não foi possível importar devices Traccar.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function linkSelectedTraccar() {
+    if (!selectedLocalTraccarDevice || !selectedTruckId) {
+      setError('Importe um device Traccar e selecione um camião antes de ligar.')
+      return
+    }
+    setBusyId('TRACCAR_LINK')
+    try {
+      await api.linkTraccarDevice(selectedLocalTraccarDevice.id, selectedTruckId)
+      setGpsDevices(await api.gpsDevices())
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'Não foi possível ligar o device Traccar ao camião.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <>
       <PageHeader eyebrow="Frota · GPS" title="Viagens em tempo real" description="Planeamento, carga, rota, última posição conhecida e incidentes operacionais num mapa geográfico real." action={canManage && <button className="module-primary-button" onClick={() => setFormOpen(true)}><Plus /> Nova viagem</button>} />
@@ -351,7 +420,22 @@ export function TripsPage() {
             <article><header><Navigation /><p><strong>{selectedPosition ? selectedPosition.truck.plate : 'Replay carregado'}</strong><small>{selectedPosition ? `${selectedPosition.latitude.toFixed(5)}, ${selectedPosition.longitude.toFixed(5)} · ${Math.round(selectedPosition.speed_kmh)} km/h` : replay ? `${replay.count} ponto(s), ${replay.stops.length} paragem(ns)` : 'Selecione uma viagem ou camião no mapa.'}</small></p></header>{replay && <button className="module-secondary-button" onClick={() => setReplay(null)}>Limpar replay</button>}</article>
             <article><header><AlertTriangle /><p><strong>Alertas abertos</strong><small>{alerts.length} evento(s) por resolver</small></p></header>{alerts.slice(0, 4).map((item) => <button key={item.id} className="fleet-alert-pill" onClick={() => void resolveAlert(item)}><span>{item.severity}</span>{item.title}</button>)}</article>
             <article><header><Radio /><p><strong>Geofences ativas</strong><small>{geofences.filter((item) => item.status === 'active').length} área(s)</small></p></header>{geofences.slice(0, 4).map((item) => <span key={item.id} className="geofence-pill">{item.geofence_type} · {item.name}</span>)}</article>
-            <article><header><Satellite /><p><strong>Integrações GPS</strong><small>{providers.length} provider(s) registado(s)</small></p></header>{providers.slice(0, 5).map((item) => <button key={item.code} className="fleet-alert-pill" disabled={busyId === item.code || (!canManage && item.status !== 'CONNECTED')} onClick={() => canManage ? void testProvider(item) : undefined}><span>{providerHealth[item.code]?.status || item.status}</span>{item.name}</button>)}</article>
+            <article className="gps-integration-assistant">
+              <header><Satellite /><p><strong>Integrações GPS</strong><small>{providers.length} provider(s) · Traccar {traccarStatus?.status || 'n/d'}</small></p></header>
+              {providers.slice(0, 5).map((item) => <button key={item.code} className="fleet-alert-pill" disabled={busyId === item.code || (!canManage && item.status !== 'CONNECTED')} onClick={() => canManage ? void testProvider(item) : undefined}><span>{providerHealth[item.code]?.status || item.status}</span>{item.name}</button>)}
+              <div className="traccar-assistant-panel">
+                <p><strong>Traccar oficial</strong><small>{traccarStatus?.message || 'Sem configuração ativa. Não há posições simuladas.'}</small></p>
+                <div className="traccar-actions">
+                  <button className="module-secondary-button" disabled={!canManage || busyId === 'TRACCAR_TEST'} onClick={() => void testTraccarIntegration()}>Testar</button>
+                  <button className="module-secondary-button" disabled={!canManage || busyId === 'TRACCAR_DEVICES'} onClick={() => void loadTraccarDevices()}>Listar devices</button>
+                  <button className="module-secondary-button" disabled={!canManage || busyId === 'TRACCAR_IMPORT'} onClick={() => void importSelectedTraccar()}>Importar</button>
+                </div>
+                <label><span>Device Traccar</span><select value={selectedTraccarDeviceId} onChange={(event) => setSelectedTraccarDeviceId(event.target.value)}><option value="">Selecione após listar</option>{traccarDevices.map((item) => <option key={item.external_id} value={item.external_id}>{item.name} · {item.unique_id || item.external_id} · {item.status || 'n/d'}</option>)}</select></label>
+                <label><span>Camião local</span><select value={selectedTruckId} onChange={(event) => setSelectedTruckId(event.target.value)}><option value="">Selecione camião</option>{trucks.map((item) => <option key={item.id} value={item.id}>{item.plate} · {item.status}</option>)}</select></label>
+                <button className="module-primary-button" disabled={!canManage || !selectedLocalTraccarDevice || !selectedTruckId || busyId === 'TRACCAR_LINK'} onClick={() => void linkSelectedTraccar()}>Ligar device ao camião</button>
+                <small>{selectedLocalTraccarDevice ? `Device local pronto: ${selectedLocalTraccarDevice.device_uid}` : 'Depois de importar, o device fica disponível para ligação.'}</small>
+              </div>
+            </article>
           </section>
           <OfflineMapManager />
         </>

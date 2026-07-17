@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import admin, auth, dashboard, enterprise, fleet, fleet_tracking, hr, management, maps, operations, portal, system
+from app.api.routes import admin, auth, dashboard, enterprise, fleet, fleet_tracking, hr, integrations, management, maps, operations, portal, system
 
 
 api_router = APIRouter()
@@ -13,6 +13,7 @@ api_router.include_router(operations.public_router)
 api_router.include_router(fleet.router)
 api_router.include_router(fleet_tracking.router)
 api_router.include_router(maps.router)
+api_router.include_router(integrations.router)
 api_router.include_router(management.router)
 api_router.include_router(portal.router)
 api_router.include_router(system.router)

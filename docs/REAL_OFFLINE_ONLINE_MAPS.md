@@ -6,7 +6,7 @@
 - O componente abstrato/SVG foi removido do fluxo operacional: quando nenhum provider real está disponível, o sistema mostra erro claro e o gestor de mapas, não um mapa fictício.
 - A implementação frontend foi modularizada em `frontend/src/features/maps/`.
 - O build usa dependências locais `maplibre-gl` e `pmtiles`, em vez de carregar MapLibre via CDN.
-- Provider online raster usa OpenStreetMap em `https://tile.openstreetmap.org`, com atribuição obrigatória.
+- Provider online raster usa MapLibre com estilo funcional `frontend/public/maps/styles/fnl-dark.json`, baseado em tiles reais CARTO/OSM dark (`https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png`) e atribuição obrigatória.
 - Provider offline local aceita pacotes `.mbtiles` e `.pmtiles` guardados em `userData/maps`.
 - Modo de operação:
   - `auto`: tenta online e, havendo pacote ativo, alterna para offline quando o provider online falha;
@@ -17,11 +17,12 @@
 
 | Provider | Estado | Observação |
 |---|---|---|
-| `ONLINE_RASTER` | Implementado | OSM raster, requer internet e deve manter atribuição dos dados. |
+| `ONLINE_RASTER` | Implementado | MapLibre raster real com estilo dark funcional, requer internet e deve manter atribuição dos dados. |
 | `OFFLINE_MBTILES` | Implementado | Renderiza MBTiles raster e MBTiles vectoriais compatíveis com esquema OpenMapTiles. |
 | `OFFLINE_PMTILES` | Implementado para pacotes vectoriais compatíveis | Usa protocolo `pmtiles://` no MapLibre; a qualidade visual depende dos source-layers do pacote real. |
 | `ONLINE_VECTOR` | Provider-ready | Não há endpoint/licença de vector tiles configurado. |
-| `GOOGLE_ONLINE` | Provider-ready | Somente online e somente com API oficial/chave configurada; não há Google offline. |
+| `GOOGLE_ONLINE` | Provider oficial separado | Somente online, somente com Google Maps JavaScript API oficial e `VITE_GOOGLE_MAPS_ENABLED=true`/`VITE_GOOGLE_MAPS_API_KEY`; não há Google offline nem tiles Google dentro do MapLibre. |
+| `SERPAPI_PLACE_SEARCH` | Implementado como pesquisa auxiliar | Backend-only, usa `SERPAPI_ENABLED`/`SERPAPI_KEY`; pesquisa locais do Google Maps via SerpApi, normaliza resultados e permite mostrar/guardar ponto operacional sem renderizar mapas. |
 | `MAP_UNAVAILABLE` | Implementado | Mostra erro explícito e orienta importar/configurar provider real. |
 
 ## Backend
@@ -36,6 +37,7 @@ Rotas principais:
 - `DELETE /api/v1/maps/packages/{package_id}`
 - `GET /api/v1/maps/packages/{package_id}/tiles/{z}/{x}/{y}.{extension}`
 - `GET /api/v1/maps/packages/{package_id}/pmtiles`
+- `GET /api/v1/maps/places/search`
 
 Os mapas ficam fora do instalador e fora de `Program Files`, em `userData/maps`.
 
@@ -46,6 +48,27 @@ Os mapas ficam fora do instalador e fora de `Program Files`, em `userData/maps`.
 - `frontend/src/features/maps/providers/mapStyles.ts`
 - `frontend/src/features/maps/types.ts`
 - `frontend/public/maps/styles/fnl-dark.json`
+- `frontend/.env.maps.example`
+
+## SerpApi auxiliar
+
+A SerpApi não desenha mapas no ERP. Ela é usada somente para pesquisa auxiliar de locais, com endpoint autenticado:
+
+```http
+GET /api/v1/maps/places/search?query=oficina&latitude=-8.8&longitude=13.2&zoom=10
+```
+
+Variáveis backend:
+
+```env
+SERPAPI_ENABLED=false
+SERPAPI_KEY=
+SERPAPI_BASE_URL=https://serpapi.com/search
+SERPAPI_TIMEOUT=8
+SERPAPI_RATE_LIMIT_PER_MINUTE=20
+```
+
+Sem chave, o endpoint responde `503` e a interface mostra mensagem explícita. Os resultados não são persistidos automaticamente: o utilizador precisa escolher “Guardar” para criar ponto operacional/geofence.
 
 ## Validação executada
 
@@ -53,7 +76,9 @@ Os mapas ficam fora do instalador e fora de `Program Files`, em `userData/maps`.
 - `cmd /c "cd frontend && npx vite build"`
 - `backend/.venv/Scripts/python.exe -m compileall backend/app -q`
 - `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_gps_geofences_replay.py -q`
-- `scripts/release-readiness.ps1 -SkipTests -SkipFrontendBuild -SkipBackendHealth`
+- `backend/.venv/Scripts/python.exe -m pytest backend/tests/test_maps_serpapi_traccar.py -q`
+- Validação visual documentada em `docs/MAP_BROWSER_VALIDATION.md`
+- `scripts/release-readiness.ps1 -SkipTests -SkipFrontendBuild`
 
 ## Limitação real
 

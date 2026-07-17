@@ -15,8 +15,18 @@ export function isVectorTilePackage(pkg: MapPackage) {
   return pkg.provider === 'OFFLINE_PMTILES' || (pkg.provider === 'OFFLINE_MBTILES' && VECTOR_TILE_FORMATS.has(pkg.tile_format || ''))
 }
 
-export function onlineRasterStyle(): StyleSpecification {
-  const styleUrl = import.meta.env.VITE_MAP_ONLINE_STYLE_URL as string | undefined
+export function onlineRasterStyle(): StyleSpecification | string {
+  const explicitStyleUrl = (import.meta.env.VITE_MAP_STYLE_URL || import.meta.env.VITE_MAP_ONLINE_STYLE_URL) as string | undefined
+  if (explicitStyleUrl && (/^https?:\/\//i.test(explicitStyleUrl) || explicitStyleUrl.startsWith('/'))) {
+    return explicitStyleUrl
+  }
+
+  const mapTilerKey = import.meta.env.VITE_MAPTILER_KEY as string | undefined
+  if (mapTilerKey) {
+    return `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${encodeURIComponent(mapTilerKey)}`
+  }
+
+  const styleUrl = import.meta.env.VITE_MAP_RASTER_TILE_URL as string | undefined
   if (styleUrl) {
     return {
       version: 8,
@@ -31,18 +41,7 @@ export function onlineRasterStyle(): StyleSpecification {
       layers: [{ id: 'online-raster', type: 'raster', source: 'online' }],
     }
   }
-  return {
-    version: 8,
-    sources: {
-      osm: {
-        type: 'raster',
-        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-        tileSize: 256,
-        attribution: '© OpenStreetMap contributors',
-      },
-    },
-    layers: [{ id: 'osm-raster', type: 'raster', source: 'osm' }],
-  }
+  return '/maps/styles/fnl-dark.json'
 }
 
 export function offlineRasterStyle(pkg: MapPackage): StyleSpecification {

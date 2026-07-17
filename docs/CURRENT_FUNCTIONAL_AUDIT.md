@@ -21,7 +21,7 @@ Escopo: recuperação após o build interno `0.12.1`, sem gerar novo instalador.
 | Mapas/GIS | Gestor de mapas | Importar/ativar/remover pacote | `/api/v1/maps/packages/*` | `userData/maps/packages` | `fleet.manage` | importação segura por path local backend | pendente E2E | FUNCTIONAL_NOT_VALIDATED | backend valida extensão/checksum e não lê path arbitrário do frontend diretamente | criar teste com MBTiles/PMTiles fixture |
 | Mapas/GIS | Google online | Provider externo | n/d | n/d | admin/settings | provider opcional | pendente | MISSING | sem API key real; não pode ser declarado funcional | criar página de configuração e health quando houver key |
 | GPS físico | Integrações GPS | Device token HTTP | `/api/v1/fleet/gps/devices`, `/ingest` | tabelas fleet tracking | `fleet.manage`/token dispositivo | ingestão segura normalizada | `test_gps_geofences_replay.py` | FUNCTIONAL_VALIDATED | token de dispositivo separado de login humano | expandir para Traccar/MQTT/HTTP vendor |
-| GPS físico | Traccar | Testar conexão/importar devices | n/d | n/d | `fleet.manage` | provider-ready | pendente | MISSING | não há `TRACCAR_URL`/credenciais reais nem adapter | implementar adapter registry e página Integrações GPS |
+| GPS físico | Traccar | Testar conexão/importar devices/link-device | `/api/v1/integrations/traccar/*` | `gps_tracker_devices` | `fleet.view/manage` | provider real configurável | `test_maps_serpapi_traccar.py` | FUNCTIONAL_NOT_CONNECTED | adapter implementado; sem servidor/credenciais reais fica `DISCONNECTED` e não simula posições | validar com servidor Traccar real e dispositivos físicos |
 | Frota | Viagens & GPS | Criar viagem/iniciar/entregar/replay | `/api/v1/fleet/*`, `/api/v1/fleet/gps/replay` | SQLite | `fleet.manage`, `fleet.view` | parcial | backend tests | PARTIAL | status básico existe; checklist e bloqueios críticos ainda não estão completos | implementar workflow completo DRAFT→CLOSED |
 | Geofences | Viagens & GPS | Listar/alertar/resolver | `/api/v1/fleet/geofences`, `/alerts` | SQLite | `fleet.view/manage` | ENTER/EXIT parcial | backend tests | PARTIAL | geofences são renderizadas no mapa real quando há provider | criar editor no mapa e regras por veículo/cliente/horário |
 | Documentos | Certificados | Preview/PDF/emitir | `/api/v1/operations/certificates/*` | SQLite | operações/certificados | preview e emissão protegida | testes existentes | PARTIAL | preview iframe existe; revisão/aprovação completa de todos documentos ainda parcial | generalizar workflow documental DRAFT→ARCHIVED |
@@ -45,7 +45,7 @@ Completação funcional total: mapa operacional migrado para GIS MapLibre modula
 
 ## Itens críticos ainda não concluídos
 
-- Traccar/provider telemático real.
+- Traccar/provider telemático real conectado com credenciais e dispositivos físicos.
 - Google Maps online oficial com API key e health.
 - Pacote Angola PMTiles/MBTiles real fornecido/importado e validado visualmente.
 - Editor real de geofences no mapa.

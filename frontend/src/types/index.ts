@@ -417,6 +417,56 @@ export interface GPSProviderHealth {
   tested_at: string
 }
 
+export interface GPSTrackerDeviceRecord {
+  id: string
+  device_uid: string
+  label: string
+  truck_id?: string
+  driver_id?: string
+  provider: string
+  capabilities: string[]
+  status: string
+  last_seen_at?: string
+  created_at: string
+}
+
+export interface TraccarStatus {
+  provider: 'TRACCAR'
+  status: string
+  configured: boolean
+  base_url?: string
+  message: string
+  checked_at: string
+}
+
+export interface TraccarDevice {
+  external_id: string
+  name: string
+  unique_id?: string
+  status?: string
+  phone?: string
+  model?: string
+  category?: string
+  last_update?: string
+}
+
+export interface MapPlaceResult {
+  external_id: string
+  title: string
+  category?: string
+  address?: string
+  phone?: string
+  website?: string
+  latitude: number
+  longitude: number
+  rating?: number
+  reviews?: number
+  hours?: string
+  thumbnail?: string
+  source: string
+  retrieved_at: string
+}
+
 export interface GPSReplayData {
   mode: string
   count: number

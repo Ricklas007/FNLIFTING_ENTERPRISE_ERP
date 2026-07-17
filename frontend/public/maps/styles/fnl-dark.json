@@ -1,18 +1,30 @@
 {
   "version": 8,
-  "name": "FNLIFTING Dark Enterprise",
+  "name": "FNLIFTING Dark Enterprise Online",
   "metadata": {
     "owner": "FNLIFTING",
-    "purpose": "Base dark para MapLibre/PMTiles/MBTiles reais",
-    "requires": "Fonte vectorial compatível com OpenMapTiles ou raster provider configurado"
+    "purpose": "Base cartográfica dark para validação MapLibre online",
+    "source": "OpenStreetMap via CARTO raster basemap",
+    "attribution": "© OpenStreetMap contributors © CARTO",
+    "production_note": "Para tráfego empresarial intenso, configurar VITE_MAP_STYLE_URL, VITE_MAPTILER_KEY ou servidor/licença própria."
   },
-  "sources": {},
+  "sources": {
+    "carto-dark": {
+      "type": "raster",
+      "tiles": [
+        "https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256,
+      "attribution": "© OpenStreetMap contributors © CARTO"
+    }
+  },
   "layers": [
     {
-      "id": "background",
-      "type": "background",
+      "id": "carto-dark-raster",
+      "type": "raster",
+      "source": "carto-dark",
       "paint": {
-        "background-color": "#020817"
+        "raster-opacity": 1
       }
     }
   ]

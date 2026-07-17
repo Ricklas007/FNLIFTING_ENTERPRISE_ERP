@@ -470,18 +470,50 @@ button:disabled { cursor: not-allowed; opacity: .62; }
 
 .real-map-shell {
   position: relative;
-  min-height: 430px;
+  min-height: 520px;
   overflow: hidden;
-  background: radial-gradient(circle at 55% 45%, rgba(18, 71, 115, .45), rgba(3, 13, 25, .98) 65%);
+  background:
+    linear-gradient(180deg, rgba(5, 18, 32, .2), rgba(1, 7, 15, .72)),
+    radial-gradient(circle at 55% 45%, rgba(18, 71, 115, .45), rgba(3, 13, 25, .98) 65%);
 }
 
 .real-map-container {
-  min-height: 430px;
-  height: 430px;
+  min-height: 520px;
+  height: 520px;
+  filter: saturate(1.05) contrast(1.05);
 }
 
 .real-map-container .maplibregl-canvas {
   outline: none;
+}
+
+.google-map-provider {
+  min-height: 520px;
+}
+
+.maplibregl-ctrl-top-right {
+  top: 12px;
+  right: 12px;
+}
+
+.maplibregl-ctrl-group {
+  overflow: hidden;
+  border: 1px solid rgba(108, 151, 195, .28);
+  border-radius: 12px;
+  background: rgba(5, 14, 28, .86);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .32);
+}
+
+.maplibregl-ctrl-group button {
+  background: rgba(5, 14, 28, .86);
+  color: #d8eaff;
+  filter: invert(1) hue-rotate(175deg) saturate(.9);
+}
+
+.maplibregl-ctrl-attrib {
+  border-top-left-radius: 10px;
+  background: rgba(2, 8, 23, .72) !important;
+  color: #8fb0d0;
 }
 
 .gps-marker.real {
@@ -489,11 +521,180 @@ button:disabled { cursor: not-allowed; opacity: .62; }
   transform: none;
   border: 1px solid #36a5ff;
   cursor: pointer;
+  color: #e8f5ff;
+  background: linear-gradient(145deg, #0b4e8f, #0d86ef);
+  box-shadow: 0 0 0 8px rgba(16, 130, 245, .18), 0 0 28px rgba(24, 156, 255, .65);
 }
 
 .gps-marker.real svg {
   fill: currentColor;
   width: 17px;
+}
+
+.gps-marker.real.stopped {
+  background: linear-gradient(145deg, #31425a, #6d829f);
+}
+
+.gps-marker.real.incident {
+  border-color: #fb7185;
+  background: linear-gradient(145deg, #7f1d1d, #f43f5e);
+  box-shadow: 0 0 0 8px rgba(248, 113, 113, .18), 0 0 28px rgba(244, 63, 94, .62);
+}
+
+.gps-marker.real.offline {
+  opacity: .66;
+  background: linear-gradient(145deg, #1f2937, #475569);
+  box-shadow: 0 0 0 8px rgba(148, 163, 184, .12);
+}
+
+.map-place-marker {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(56, 189, 248, .88);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #0b4e8f, #13b4ff);
+  color: #e8f7ff;
+  cursor: pointer;
+  box-shadow: 0 0 0 9px rgba(14, 165, 233, .18), 0 0 32px rgba(56, 189, 248, .72);
+}
+
+.map-place-marker svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.map-place-search {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  z-index: 3;
+  width: min(540px, calc(100% - 98px));
+  pointer-events: auto;
+}
+
+.map-place-search-row,
+.map-place-results {
+  border: 1px solid rgba(82, 151, 220, .24);
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(2, 10, 22, .88), rgba(4, 20, 38, .82));
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .28);
+  backdrop-filter: blur(10px);
+}
+
+.map-place-search-row {
+  display: grid;
+  grid-template-columns: 1fr minmax(150px, .48fr) auto;
+  gap: 8px;
+  align-items: end;
+  padding: 10px;
+}
+
+.map-place-search label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #9cb7d6;
+  font-size: 10px;
+}
+
+.map-place-search input,
+.map-place-search select {
+  height: 38px;
+  border: 1px solid rgba(81, 143, 206, .25);
+  border-radius: 10px;
+  background: rgba(1, 7, 17, .68);
+  color: #e7f2ff;
+  padding: 0 10px;
+}
+
+.map-place-search button {
+  min-height: 38px;
+  border: 1px solid rgba(45, 153, 255, .35);
+  border-radius: 10px;
+  background: rgba(19, 117, 218, .28);
+  color: #cfeaff;
+  padding: 0 11px;
+  cursor: pointer;
+}
+
+.map-place-search button:disabled {
+  opacity: .52;
+  cursor: not-allowed;
+}
+
+.map-place-results {
+  display: grid;
+  gap: 7px;
+  max-height: 285px;
+  overflow: auto;
+  margin-top: 8px;
+  padding: 8px;
+}
+
+.map-place-results article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(78, 144, 207, .16);
+  border-radius: 12px;
+  background: rgba(7, 25, 43, .84);
+  padding: 8px;
+}
+
+.map-place-results article > svg {
+  width: 17px;
+  height: 17px;
+  color: #38bdf8;
+}
+
+.map-place-results article div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.map-place-results strong,
+.map-place-results span,
+.map-place-results small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-place-results strong {
+  color: #eaf5ff;
+  font-size: 11px;
+}
+
+.map-place-results span,
+.map-place-results small {
+  color: #8aa8c8;
+  font-size: 9px;
+}
+
+.map-place-error,
+.map-place-message {
+  margin: 0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 10px;
+}
+
+.map-place-error {
+  border: 1px solid rgba(248, 113, 113, .32);
+  background: rgba(69, 10, 10, .35);
+  color: #fecaca;
+}
+
+.map-place-message {
+  border: 1px solid rgba(45, 212, 191, .24);
+  background: rgba(4, 47, 46, .32);
+  color: #a7f3d0;
 }
 
 .map-fallback-overlay {
@@ -747,6 +948,64 @@ button:disabled { cursor: not-allowed; opacity: .62; }
 
 .gps-command-center-strip header small {
   color: #6f8baa;
+}
+
+.gps-integration-assistant {
+  display: grid;
+  gap: 8px;
+}
+
+.traccar-assistant-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+  border: 1px solid rgba(56, 189, 248, .16);
+  border-radius: 13px;
+  background: rgba(2, 13, 27, .58);
+  padding: 10px;
+}
+
+.traccar-assistant-panel p {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+
+.traccar-assistant-panel p strong {
+  color: #e8f5ff;
+  font-size: 12px;
+}
+
+.traccar-assistant-panel p small,
+.traccar-assistant-panel > small {
+  color: #7f9dbd;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.traccar-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.traccar-assistant-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #8aa8c8;
+  font-size: 10px;
+}
+
+.traccar-assistant-panel select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(81, 143, 206, .23);
+  border-radius: 10px;
+  background: rgba(4, 15, 29, .92);
+  color: #e7f2ff;
+  padding: 0 10px;
 }
 
 .fleet-alert-pill,
