@@ -126,7 +126,7 @@ function startFrontendServer() {
     response.writeHead(200, {
       'Content-Type': contentType(filePath),
       'Cache-Control': filePath.endsWith('index.html') ? 'no-cache' : 'public, max-age=31536000, immutable',
-      'Content-Security-Policy': `default-src 'self'; connect-src 'self' http://127.0.0.1:${frontendPort} http://127.0.0.1:${backendPort}; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; frame-ancestors 'none'`,
+      'Content-Security-Policy': `default-src 'self'; connect-src 'self' http://127.0.0.1:${frontendPort} http://127.0.0.1:${backendPort} https://tile.openstreetmap.org https://unpkg.com; img-src 'self' data: blob: https://tile.openstreetmap.org; style-src 'self' 'unsafe-inline' https://unpkg.com; script-src 'self' https://unpkg.com; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'none'`,
     })
     fs.createReadStream(filePath).pipe(response)
   })

@@ -16,7 +16,7 @@ Cada viagem liga camião, motorista e cliente, com origem, destino, província, 
 
 ## GPS local-first
 
-`POST /api/v1/fleet/gps/positions` recebe latitude, longitude, velocidade, direção, estado do veículo, nível de combustível, camião, viagem e data/hora. A interface apresenta a última posição de cada camião num mapa SVG de Angola, funcionando sem serviço cartográfico externo. O histórico permanece disponível por viagem.
+`POST /api/v1/fleet/gps/positions` recebe latitude, longitude, velocidade, direção, estado do veículo, nível de combustível, camião, viagem e data/hora. A interface apresenta a última posição de cada camião num mapa real MapLibre, com provider online raster e fallback/importação offline por MBTiles/PMTiles. O histórico permanece disponível por viagem.
 
 ## Dados de demonstração
 

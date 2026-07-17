@@ -30,7 +30,7 @@ if (typeof window !== 'undefined' && window.fnliftingDesktop?.getApiBaseUrl) {
   })
 }
 
-function apiUrl(path: string): string {
+export function apiUrl(path: string): string {
   return `${runtimeApiUrl ?? API_URL}${path}`
 }
 
@@ -179,6 +179,12 @@ export const api = {
   createTrip: (payload: Record<string, unknown>) => request<TripRecord>('/fleet/trips', { method: 'POST', body: JSON.stringify(payload) }, true),
   updateTrip: (id: string, payload: Record<string, unknown>) => request<TripRecord>(`/fleet/trips/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }, true),
   livePositions: () => request<GPSPosition[]>('/fleet/gps/live', {}, true),
+  mapStatus: () => request<Record<string, unknown>>('/maps/status', {}, true),
+  setMapMode: (mode: 'auto' | 'offline' | 'online') => request<Record<string, unknown>>('/maps/mode', { method: 'POST', body: JSON.stringify({ mode }) }, true),
+  importMapPackage: (payload: Record<string, unknown>) => request<Record<string, unknown>>('/maps/packages/import', { method: 'POST', body: JSON.stringify(payload) }, true),
+  activateMapPackage: (id: string) => request<Record<string, unknown>>(`/maps/packages/${id}/activate`, { method: 'POST' }, true),
+  deactivateMapPackage: () => request<Record<string, unknown>>('/maps/packages/deactivate', { method: 'POST' }, true),
+  removeMapPackage: (id: string) => request<Record<string, unknown>>(`/maps/packages/${id}`, { method: 'DELETE' }, true),
   createGPSPosition: (payload: Record<string, unknown>) => request<GPSPosition>('/fleet/gps/positions', { method: 'POST', body: JSON.stringify(payload) }, true),
   incidents: () => request<FleetIncident[]>('/fleet/incidents', {}, true),
   assetSummary: () => request<AssetSummary>('/management/assets/summary', {}, true),

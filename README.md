@@ -14,6 +14,8 @@ Documentação enterprise:
 - `docs/DESKTOP_MOBILE_BUILD.md`
 - `docs/DESKTOP_RUNTIME_INCIDENT.md`
 - `docs/DESKTOP_RUNTIME_ARCHITECTURE.md`
+- `docs/REAL_OFFLINE_ONLINE_MAPS.md`
+- `docs/MAP_PACKAGE_MANAGEMENT.md`
 - `docs/WINDOWS_INSTALLER_TEST.md`
 - `docs/DATA_STORAGE_LOCATIONS.md`
 - `docs/BACKEND_STANDALONE_BUILD.md`
@@ -90,7 +92,7 @@ O backup inicial de demonstração usa a palavra-passe `DemoBackup@2026`. Crie b
 - perfis técnicos de inspetores e supervisores com qualificações, assinatura e carimbo próprios;
 - cadastro funcional de motoristas e camiões-cisterna, documentos e alertas de validade;
 - viagens, carga, cliente, estados operacionais, incidentes e posições GPS;
-- mapa local responsivo com última posição, velocidade, combustível e fallback sem internet.
+- mapa real MapLibre com provider online raster, importação MBTiles/PMTiles, gestor offline, última posição, velocidade, combustível e fallback operacional.
 - património empresarial com valores, depreciação, localização, responsável, manutenções e transferências;
 - centro financeiro com despesas, receitas, faturas, pagamentos, recibos e PDFs automáticos;
 - gestão documental com upload local, checksum SHA-256, versões, validade, aprovação e acesso controlado;
