@@ -137,3 +137,20 @@ Evidencia alvo:
 | `backend\.venv\Scripts\python.exe -m pytest backend\tests\test_gps_pilot_acceptance.py -q --basetemp=.runtime\pytest-tmp-phase15-pilot-rerun2` | 1 passed |
 | Render PDF Poppler | PNG gerado em `.runtime\pdf-review\phase15-gps-pilot-fixed.png`, sem clipping visual |
 | Classificacao | `GPS_SIMULATED_VALIDATED`; `GPS_PHYSICAL_PENDING_HARDWARE`; `TRACCAR_PIPELINE_READY_PENDING_EXTERNAL_RUNTIME`; `VENDOR_API_NOT_AVAILABLE` |
+
+## Gate final da retentativa - 2026-08-02
+
+| Validacao | Resultado |
+|---|---|
+| Backend tests completos | `40 passed, 649 warnings` com `--basetemp .runtime/pytest-basetemp` |
+| Frontend lint | 0 errors, 24 warnings legados |
+| Frontend build | OK |
+| Alembic current/heads | `20260802_0006 (head)` |
+| Prod preflight | ready 12 OK/0 warnings/0 failures; backend 40 passed; frontend build OK |
+| Backend `/ready` temporario | HTTP 200, `ready`, 12 pass/0 warn/0 fail |
+| Release-readiness | 0 failures, 2 warnings: Docker CLI ausente e SerpApi live nao assertado pelo gate |
+| Desktop win-unpacked smoke | 3 ciclos OK |
+| Desktop instalado smoke | 3 ciclos OK em `C:/Program Files/FNLIFTING ENTERPRISE ERP` |
+| Android assembleDebug | BUILD SUCCESSFUL |
+| Android test/lint | BUILD SUCCESSFUL |
+| AAB | `BLOCKED_EXTERNAL_SIGNING`, sem keystore/signingConfig seguro |

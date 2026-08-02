@@ -13,7 +13,10 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $JdkRuntimeDir = Join-Path $Root ".runtime\android-jdk"
 $AndroidSdkRoot = Join-Path $Root ".runtime\android-sdk"
+$AndroidUserHome = Join-Path $Root ".runtime\android-home"
 $DownloadDir = Join-Path $Root ".runtime\downloads"
+$CapacitorNodeShim = Join-Path $Root "scripts\capacitor-os-userinfo-shim.cjs"
+$ProjectGradleHome = Join-Path $Root ".runtime\gradle-home"
 $PortableJdkUrl = "https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.zip"
 $CommandLineToolsUrl = "https://dl.google.com/android/repository/commandlinetools-win-$CommandLineToolsRevision`_latest.zip"
 
@@ -283,6 +286,25 @@ function Invoke-AndroidGradle {
     & .\gradlew.bat @Arguments
 }
 
+function Invoke-CapacitorSync {
+    $previousNodeOptions = $env:NODE_OPTIONS
+    $shimOption = "--require=$CapacitorNodeShim"
+
+    try {
+        if (Test-Path -LiteralPath $CapacitorNodeShim) {
+            $env:NODE_OPTIONS = (($shimOption, $previousNodeOptions) | Where-Object { $_ }) -join " "
+        }
+
+        & npm run mobile:sync
+        if ($LASTEXITCODE -ne 0) {
+            throw "Capacitor sync failed with exit code $LASTEXITCODE"
+        }
+    }
+    finally {
+        $env:NODE_OPTIONS = $previousNodeOptions
+    }
+}
+
 function Invoke-SdkManager {
     param(
         [string]$SdkRoot,
@@ -463,17 +485,22 @@ catch {
 
 $env:ANDROID_HOME = $sdkRoot
 $env:ANDROID_SDK_ROOT = $sdkRoot
+$env:ANDROID_USER_HOME = $AndroidUserHome
 $env:PATH = (Join-Path $sdkRoot "platform-tools") + [IO.Path]::PathSeparator +
     (Join-Path $sdkRoot "cmdline-tools\latest\bin") + [IO.Path]::PathSeparator + $env:PATH
+New-Item -ItemType Directory -Force -Path $AndroidUserHome | Out-Null
 
 Write-Host "Using ANDROID_HOME=$sdkRoot"
+Write-Host "Using ANDROID_USER_HOME=$AndroidUserHome"
+
+$previousGradleUserHome = $env:GRADLE_USER_HOME
+$env:GRADLE_USER_HOME = $ProjectGradleHome
+New-Item -ItemType Directory -Force -Path $ProjectGradleHome | Out-Null
+Write-Host "Using GRADLE_USER_HOME=$ProjectGradleHome"
 
 Push-Location $Root
 try {
-    & npm run mobile:sync
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
-    }
+    Invoke-CapacitorSync
 
     Push-Location (Join-Path $Root "android")
     try {
@@ -488,4 +515,5 @@ try {
 }
 finally {
     Pop-Location
+    $env:GRADLE_USER_HOME = $previousGradleUserHome
 }

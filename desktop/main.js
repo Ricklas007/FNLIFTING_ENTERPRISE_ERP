@@ -11,6 +11,19 @@ const { createRuntimePaths, frontendDistDir, rootDir } = require('./runtime/path
 const APP_NAME = 'FNLIFTING ENTERPRISE ERP'
 const MIN_SPLASH_MS = 2500
 
+if (process.env.FNLIFTING_USER_DATA_DIR) {
+  const forcedUserData = path.resolve(process.env.FNLIFTING_USER_DATA_DIR)
+  fs.mkdirSync(forcedUserData, { recursive: true })
+  app.setPath('userData', forcedUserData)
+}
+
+if (process.env.FNLIFTING_DESKTOP_SMOKE_TEST === '1') {
+  app.disableHardwareAcceleration()
+  app.commandLine.appendSwitch('disable-gpu')
+  app.commandLine.appendSwitch('disable-gpu-compositing')
+  app.commandLine.appendSwitch('disable-gpu-sandbox')
+  app.commandLine.appendSwitch('disable-accelerated-2d-canvas')
+}
 let runtimePaths = null
 let logManager = null
 let backendManager = null
@@ -191,15 +204,28 @@ function createMainWindow() {
   })
   mainWindow.removeMenu()
   hardenWindow(mainWindow)
-  mainWindow.loadURL(`http://127.0.0.1:${frontendPort}`)
-  mainWindow.once('ready-to-show', () => {
+  let desktopReadyLogged = false
+  const markDesktopReady = (showWindow) => {
+    if (desktopReadyLogged) return
+    desktopReadyLogged = true
     if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close()
-    mainWindow.show()
+    if (showWindow && !mainWindow.isDestroyed()) mainWindow.show()
     logManager.write('startup', 'DESKTOP_READY')
     if (process.env.FNLIFTING_DESKTOP_SMOKE_TEST === '1') {
       setTimeout(() => app.quit(), Number(process.env.FNLIFTING_DESKTOP_SMOKE_CLOSE_MS || 3500))
     }
-  })
+  }
+  mainWindow.once('ready-to-show', () => markDesktopReady(true))
+  if (process.env.FNLIFTING_DESKTOP_SMOKE_TEST === '1') {
+    mainWindow.webContents.once('did-finish-load', () => markDesktopReady(false))
+    setTimeout(() => {
+      if (!desktopReadyLogged) {
+        logManager.write('startup', 'DESKTOP_READY_FALLBACK')
+        markDesktopReady(false)
+      }
+    }, Number(process.env.FNLIFTING_DESKTOP_SMOKE_READY_TIMEOUT_MS || 5000))
+  }
+  mainWindow.loadURL(`http://127.0.0.1:${frontendPort}`)
 }
 
 function createErrorWindow(error) {

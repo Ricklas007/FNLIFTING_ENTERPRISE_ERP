@@ -3,6 +3,15 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+function Normalize-ProcessPathEnvironment {
+    $vars = [System.Environment]::GetEnvironmentVariables("Process")
+    if ($vars.Contains("PATH") -and $vars.Contains("Path")) {
+        $pathValue = [string]$vars["Path"]
+        if (-not $pathValue) { $pathValue = [string]$vars["PATH"] }
+        [System.Environment]::SetEnvironmentVariable("PATH", $null, "Process")
+        [System.Environment]::SetEnvironmentVariable("Path", $pathValue, "Process")
+    }
+}
 $Root = Split-Path -Parent $PSScriptRoot
 $Exe = Join-Path $Root "backend-dist\FNLiftingBackend\FNLiftingBackend.exe"
 
@@ -51,6 +60,7 @@ $env:HOST = "127.0.0.1"
 $env:PORT = "19081"
 $ServerLog = Join-Path $Logs "serve.log"
 $ServerErr = Join-Path $Logs "serve.err.log"
+Normalize-ProcessPathEnvironment
 $proc = Start-Process -FilePath $Exe -ArgumentList @("serve") -RedirectStandardOutput $ServerLog -RedirectStandardError $ServerErr -WindowStyle Hidden -PassThru
 try {
     $deadline = (Get-Date).AddSeconds(120)

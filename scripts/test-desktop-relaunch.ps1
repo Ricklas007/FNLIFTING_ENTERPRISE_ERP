@@ -5,6 +5,15 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+function Normalize-ProcessPathEnvironment {
+    $vars = [System.Environment]::GetEnvironmentVariables("Process")
+    if ($vars.Contains("PATH") -and $vars.Contains("Path")) {
+        $pathValue = [string]$vars["Path"]
+        if (-not $pathValue) { $pathValue = [string]$vars["PATH"] }
+        [System.Environment]::SetEnvironmentVariable("PATH", $null, "Process")
+        [System.Environment]::SetEnvironmentVariable("Path", $pathValue, "Process")
+    }
+}
 $Root = Split-Path -Parent $PSScriptRoot
 
 if (-not $ExePath) {
@@ -35,6 +44,7 @@ try {
 
     for ($i = 1; $i -le $Cycles; $i++) {
         if (Test-Path $StartupLog) { Remove-Item -LiteralPath $StartupLog -Force }
+        Normalize-ProcessPathEnvironment
         $proc = Start-Process -FilePath $ExePath -PassThru -WindowStyle Hidden
         $deadline = (Get-Date).AddSeconds(180)
         $ready = $false

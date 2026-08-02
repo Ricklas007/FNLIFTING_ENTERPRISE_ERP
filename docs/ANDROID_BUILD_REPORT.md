@@ -3,44 +3,57 @@
 Data: 2026-08-02  
 Objetivo: corrigir e validar build Android/Capacitor sem reiniciar o projeto.
 
-## Correções aplicadas
+## Correcoes aplicadas
 
-- `android/local.properties` foi corrigido para apontar para o SDK portátil ignorado:
-  - `C:/Projetos/FNLIFTING_ENTERPRISE_ERP/.runtime/android-sdk`
-- `scripts/build-android.ps1` passou a:
-  - gravar paths do SDK em formato seguro para `.properties`, escapando caracteres não ASCII quando necessário;
-  - procurar Gradle cacheado quando o wrapper ficar preso;
-  - manter JDK/SDK portáteis fora do Git.
-- O SDK Android portátil foi instalado em `.runtime/android-sdk` com:
-  - command-line tools;
-  - platform-tools;
-  - Android platform 35;
-  - build-tools 35.0.0;
-  - build-tools 34.0.0, instalado automaticamente pelo Android Gradle Plugin durante o build.
+- `android/local.properties` permanece local/ignorado e aponta para o SDK portatil em `.runtime/android-sdk`.
+- `scripts/build-android.ps1` foi endurecido para:
+  - gravar paths do SDK em formato seguro para `.properties`;
+  - usar `NODE_OPTIONS=--require scripts/capacitor-os-userinfo-shim.cjs` durante o Capacitor, evitando falha Node `uv_os_get_passwd returned ENOMEM`;
+  - usar `GRADLE_USER_HOME=.runtime/gradle-home`, evitando falha `native-platform.dll` no cache do perfil Windows;
+  - usar `ANDROID_USER_HOME=.runtime/android-home`, evitando escrita em `C:\.android`;
+  - manter JDK/SDK/Gradle cache fora do Git.
+- `scripts/capacitor-os-userinfo-shim.cjs` corrige apenas a falha recuperavel de `os.userInfo()` no Node/Windows e nao altera `node_modules`.
 
-## Validação executada
+## Ambiente validado
 
-| Comando/validação | Resultado |
+| Item | Resultado |
 |---|---|
-| JBR `java` / `javac` | OK |
-| `adb version` | OK |
-| `npm run mobile:sync` | assets Android sincronizados |
+| JBR | `C:\Program Files\Android\Android Studio\jbr` |
+| Android SDK | `C:\Projetos\FNLIFTING_ENTERPRISE_ERP\.runtime\android-sdk` |
+| Gradle home | `C:\Projetos\FNLIFTING_ENTERPRISE_ERP\.runtime\gradle-home` |
+| Android user home | `C:\Projetos\FNLIFTING_ENTERPRISE_ERP\.runtime\android-home` |
+| Capacitor CLI | `7.6.7` validado com shim |
+
+## Validacao executada
+
+| Comando/validacao | Resultado |
+|---|---|
+| `npm run android:build` | `BUILD SUCCESSFUL in 9m 49s` |
+| `cap sync android` | OK |
 | Gradle `assembleDebug` | OK |
+| Gradle `test lint` | `BUILD SUCCESSFUL in 6m 25s` |
 | APK | `android/app/build/outputs/apk/debug/app-debug.apk` |
-| Tamanho APK | 8,850,944 bytes |
-| `apksigner verify --print-certs` | exit 0 |
-| `aapt dump badging` | package `com.fnlifting.enterprise.erp`, minSdk 23, targetSdk 35 |
-| `npx cap doctor android` | success |
-| `adb devices -l` | sem dispositivo/emulador conectado |
+| Tamanho APK | `9,346,368` bytes |
+| SHA-256 APK | `A4D3E576E8A77EA4C69542577D2305E8126B3CD8905DB8BDFF69C0A75F5ADE08` |
+| Package id | `com.fnlifting.enterprise.erp` |
+| minSdk/targetSdk | minSdk 23, targetSdk 35 |
+| Signing | debug signing |
 
-## Observações
+## Retentativas e classificacao
 
-- O APK gerado é debug e assinado com certificado debug Android.
-- O aviso do `apksigner` sobre entradas `META-INF/*` em APK debug não bloqueia instalação/execução; é aviso conhecido de empacotamento de metadados de dependências.
-- A validação em dispositivo físico/emulador depende de haver um target listado por `adb devices -l`.
+| Falha | Causa | Correcao | Estado |
+|---|---|---|---|
+| `uv_os_get_passwd returned ENOMEM` | Node/Capacitor consultando usuario Windows | Shim `capacitor-os-userinfo-shim.cjs` restrito ao Capacitor | VALIDATED |
+| `native-platform.dll` | Gradle cache no perfil Windows | `GRADLE_USER_HOME=.runtime/gradle-home` | VALIDATED |
+| `Permission denied: getsockopt` | rede bloqueada para Maven | retentativa com rede autorizada | VALIDATED |
+| `C:\.android` | Android user home incorreto no processo | `ANDROID_USER_HOME=.runtime/android-home` | VALIDATED |
+| `npx cap doctor android` preso | probe CLI nao concluiu em tempo util | Gradle `test lint assembleDebug` usado como validacao nativa | DEGRADED_PROBE_NOT_BLOCKING |
 
-## Reproduzir
+## AAB
 
-```powershell
-npm run android:build
-```
+AAB release nao foi gerado porque nao existe `signingConfig` seguro nem keystore release configurada. Isto esta corretamente classificado como `BLOCKED_EXTERNAL_SIGNING`; nao criar ou versionar keystore dentro do repositorio.
+
+## Observacoes
+
+- O APK gerado e debug e nao deve ser commitado.
+- A validacao em dispositivo fisico/emulador continua dependente de `adb devices -l` listar um alvo autorizado.
