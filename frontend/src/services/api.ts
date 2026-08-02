@@ -8,7 +8,7 @@ import type {
   PortalBilling, PortalOverview, ReadinessReport, ServiceRequestRecord, SyncQueueRecord, SyncRunRecord,
   SyncSummary, SystemSetting, LoginResponse, MfaSetup, EnterpriseOverview, EnterpriseNotification,
   EnterpriseDevice, SessionRecord, FleetCommandCenter, FleetComplianceCenter, AutomationCenter, AIAssistantCenter, EmployeePortal, OrgChart, ExecutiveBI,
-  ComplianceItem, LicenseStatus, GeofenceRecord, FleetAlertRecord, GPSProviderHealth, GPSProviderRecord, GPSReplayData, GPSTrackerDeviceRecord, MapPlaceResult,
+  ComplianceItem, LicenseStatus, GeofenceRecord, FleetAlertRecord, GPSProviderHealth, GPSProviderRecord, GPSReplayData, GPSTrackerDeviceRecord, MapPlaceResult, OperationalPlaceRecord,
   SerpApiStatus, TraccarDevice, TraccarStatus,
 } from '@/types'
 
@@ -184,6 +184,8 @@ export const api = {
   gpsGeojsonUrl: (params: string) => apiUrl(`/fleet/gps/export.geojson?${params}`),
   geofences: () => request<GeofenceRecord[]>('/fleet/geofences', {}, true),
   createGeofence: (payload: Record<string, unknown>) => request<GeofenceRecord>('/fleet/geofences', { method: 'POST', body: JSON.stringify(payload) }, true),
+  operationalPlaces: (params = 'status=active') => request<OperationalPlaceRecord[]>(`/fleet/operational-places?${params}`, {}, true),
+  createOperationalPlace: (payload: Record<string, unknown>) => request<OperationalPlaceRecord>('/fleet/operational-places', { method: 'POST', body: JSON.stringify(payload) }, true),
   fleetAlerts: (status = 'open') => request<FleetAlertRecord[]>(`/fleet/alerts?status=${encodeURIComponent(status)}`, {}, true),
   resolveFleetAlert: (id: string) => request<{ message: string }>(`/fleet/alerts/${id}/resolve`, { method: 'POST' }, true),
   gpsProviders: () => request<GPSProviderRecord[]>('/fleet/gps/providers', {}, true),

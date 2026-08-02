@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fnlifting-enterprise-erp-v0.12.0'
+const CACHE_NAME = 'fnlifting-enterprise-erp-v0.12.1'
 const APP_SHELL = ['/', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png']
 
 self.addEventListener('install', (event) => {

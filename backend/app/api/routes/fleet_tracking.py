@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import get_current_user, require_permission
 from app.core.security import hash_password
 from app.database.session import get_db
-from app.models import FleetAlert, FleetAlertRule, Geofence, GPSPosition, GPSTrackerDevice, Truck, User
+from app.models import FleetAlert, FleetAlertRule, Geofence, GPSPosition, GPSTrackerDevice, OperationalPlace, Truck, User
 from app.schemas.auth import MessageResponse
 from app.schemas.fleet import GPSPositionOut
 from app.schemas.fleet_tracking import (
@@ -33,6 +33,9 @@ from app.schemas.fleet_tracking import (
     GPSTrackerDeviceCreate,
     GPSTrackerDeviceOut,
     GPSTrackerDeviceWithToken,
+    OperationalPlaceCreate,
+    OperationalPlaceOut,
+    OperationalPlaceUpdate,
 )
 from app.services.enterprise_utils import now_utc, to_json
 from app.services.gps_tracking_service import (
@@ -40,6 +43,7 @@ from app.services.gps_tracking_service import (
     device_token,
     geojson_payload,
     geofence_out,
+    operational_place_out,
     record_gps_ingest,
     replay_payload,
     rule_out,
@@ -174,6 +178,46 @@ def _validate_geometry(payload: GeofenceCreate | GeofenceUpdate, current: Geofen
         if not isinstance(coordinates, list) or len(coordinates[0] if coordinates and isinstance(coordinates[0], list) and coordinates[0] and isinstance(coordinates[0][0], list) else coordinates) < 3:
             raise HTTPException(status_code=422, detail="Geofence poligonal/corredor exige pelo menos 3 coordenadas")
     return shape, json.dumps(geometry, ensure_ascii=False), radius
+
+
+def _geofence_type_for_place(category: str | None, title: str) -> str:
+    value = f"{category or ''} {title}".lower()
+    if "combust" in value or "gas" in value or "fuel" in value:
+        return "FUEL_STATION"
+    if "terminal" in value or "porto" in value or "log" in value:
+        return "TERMINAL"
+    if "cliente" in value or "customer" in value:
+        return "CLIENT"
+    if "base" in value or "depot" in value:
+        return "BASE"
+    return "CHECKPOINT"
+
+
+def _create_place_geofence(db: Session, payload: OperationalPlaceCreate, user: User) -> Geofence:
+    geofence_type = payload.geofence_type or _geofence_type_for_place(payload.category, payload.title)
+    geometry = {
+        "center": [payload.longitude, payload.latitude],
+        "source": payload.source,
+        "external_id": payload.external_id,
+        "address": payload.address,
+        "category": payload.category,
+        "retrieved_at": payload.retrieved_at.isoformat() if payload.retrieved_at else None,
+    }
+    record = Geofence(
+        company_id=user.company_id,
+        name=payload.title,
+        geofence_type=geofence_type,
+        shape_type="point",
+        geometry_json=json.dumps(geometry, ensure_ascii=False),
+        radius_meters=payload.radius_meters,
+        alert_on_enter=True,
+        alert_on_exit=False,
+        status="active",
+        created_by=user.id,
+    )
+    db.add(record)
+    db.flush()
+    return record
 
 
 def _position_query(company_id: str, truck_id: str | None, trip_id: str | None, date_from: datetime | None, date_to: datetime | None):
@@ -347,6 +391,96 @@ def gps_stream(user: User = Depends(get_current_user), db: Session = Depends(get
 def list_geofences(user: User = Depends(require_permission("fleet.view")), db: Session = Depends(get_db)):
     rows = db.scalars(select(Geofence).where(Geofence.company_id == user.company_id, Geofence.deleted_at.is_(None)).order_by(Geofence.name)).all()
     return [geofence_out(row) for row in rows]
+
+
+@router.get("/operational-places", response_model=list[OperationalPlaceOut])
+def list_operational_places(
+    status_filter: str = Query(default="active", alias="status", pattern="^(active|inactive|archived|all)$"),
+    category: str | None = Query(default=None, max_length=80),
+    q: str | None = Query(default=None, max_length=120),
+    limit: int = Query(default=200, ge=1, le=1000),
+    user: User = Depends(require_permission("fleet.view")),
+    db: Session = Depends(get_db),
+):
+    query = select(OperationalPlace).where(
+        OperationalPlace.company_id == user.company_id,
+        OperationalPlace.deleted_at.is_(None),
+    )
+    if status_filter != "all":
+        query = query.where(OperationalPlace.status == status_filter)
+    if category:
+        query = query.where(OperationalPlace.category == category)
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.where(OperationalPlace.title.ilike(like))
+    rows = db.scalars(query.order_by(OperationalPlace.title.asc()).limit(limit)).all()
+    return [operational_place_out(row) for row in rows]
+
+
+@router.post("/operational-places", response_model=OperationalPlaceOut, status_code=status.HTTP_201_CREATED)
+def create_operational_place(payload: OperationalPlaceCreate, user: User = Depends(require_permission("fleet.manage")), db: Session = Depends(get_db)):
+    record = None
+    if payload.external_id:
+        record = db.scalar(
+            select(OperationalPlace).where(
+                OperationalPlace.company_id == user.company_id,
+                OperationalPlace.source == payload.source,
+                OperationalPlace.external_id == payload.external_id,
+                OperationalPlace.deleted_at.is_(None),
+            )
+        )
+    if record is None:
+        record = OperationalPlace(
+            company_id=user.company_id,
+            title=payload.title,
+            category=payload.category,
+            address=payload.address,
+            phone=payload.phone,
+            website=payload.website,
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            source=payload.source,
+            external_id=payload.external_id,
+            status=payload.status,
+            metadata_json=to_json(payload.metadata),
+            retrieved_at=payload.retrieved_at,
+            created_by=user.id,
+        )
+        db.add(record)
+    else:
+        record.title = payload.title
+        record.category = payload.category
+        record.address = payload.address
+        record.phone = payload.phone
+        record.website = payload.website
+        record.latitude = payload.latitude
+        record.longitude = payload.longitude
+        record.status = payload.status
+        record.metadata_json = to_json(payload.metadata)
+        record.retrieved_at = payload.retrieved_at
+        record.updated_by = user.id
+    if payload.create_geofence and not record.geofence_id:
+        geofence = _create_place_geofence(db, payload, user)
+        record.geofence_id = geofence.id
+    _commit_or_conflict(db, "Local operacional já registado para esta fonte")
+    db.refresh(record)
+    return operational_place_out(record)
+
+
+@router.patch("/operational-places/{place_id}", response_model=OperationalPlaceOut)
+def update_operational_place(place_id: str, payload: OperationalPlaceUpdate, user: User = Depends(require_permission("fleet.manage")), db: Session = Depends(get_db)):
+    record = db.scalar(select(OperationalPlace).where(OperationalPlace.id == place_id, OperationalPlace.company_id == user.company_id, OperationalPlace.deleted_at.is_(None)))
+    if not record:
+        raise HTTPException(status_code=404, detail="Local operacional não encontrado")
+    changes = payload.model_dump(exclude_unset=True, exclude={"metadata"})
+    for field, value in changes.items():
+        setattr(record, field, value)
+    if payload.metadata is not None:
+        record.metadata_json = to_json(payload.metadata)
+    record.updated_by = user.id
+    db.commit()
+    db.refresh(record)
+    return operational_place_out(record)
 
 
 @router.post("/geofences", response_model=GeofenceOut, status_code=status.HTTP_201_CREATED)

@@ -87,6 +87,54 @@ class GeofenceOut(BaseModel):
     created_at: datetime
 
 
+class OperationalPlaceCreate(BaseModel):
+    title: str = Field(min_length=2, max_length=180)
+    category: str | None = Field(default=None, max_length=80)
+    address: str | None = Field(default=None, max_length=300)
+    phone: str | None = Field(default=None, max_length=80)
+    website: str | None = Field(default=None, max_length=300)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    source: str = Field(default="MANUAL", max_length=80)
+    external_id: str | None = Field(default=None, max_length=180)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    retrieved_at: datetime | None = None
+    status: str = Field(default="active", pattern="^(active|inactive|archived)$")
+    create_geofence: bool = True
+    geofence_type: str | None = Field(default=None, pattern="^(BASE|CLIENT|DEPOT|FUEL_STATION|TERMINAL|PORT|RESTRICTED|CHECKPOINT|PROVINCE|MUNICIPALITY)$")
+    radius_meters: float = Field(default=120, gt=0, le=100000)
+
+
+class OperationalPlaceUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=180)
+    category: str | None = Field(default=None, max_length=80)
+    address: str | None = Field(default=None, max_length=300)
+    phone: str | None = Field(default=None, max_length=80)
+    website: str | None = Field(default=None, max_length=300)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    metadata: dict[str, Any] | None = None
+    status: str | None = Field(default=None, pattern="^(active|inactive|archived)$")
+
+
+class OperationalPlaceOut(BaseModel):
+    id: str
+    title: str
+    category: str | None
+    address: str | None
+    phone: str | None
+    website: str | None
+    latitude: float
+    longitude: float
+    source: str
+    external_id: str | None
+    geofence_id: str | None
+    status: str
+    metadata: dict[str, Any]
+    retrieved_at: datetime | None
+    created_at: datetime
+
+
 class FleetAlertRuleCreate(BaseModel):
     code: str = Field(min_length=3, max_length=80)
     name: str = Field(min_length=3, max_length=180)

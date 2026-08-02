@@ -482,6 +482,24 @@ export interface MapPlaceResult {
   retrieved_at: string
 }
 
+export interface OperationalPlaceRecord {
+  id: string
+  title: string
+  category?: string
+  address?: string
+  phone?: string
+  website?: string
+  latitude: number
+  longitude: number
+  source: string
+  external_id?: string
+  geofence_id?: string
+  status: string
+  metadata: Record<string, unknown>
+  retrieved_at?: string
+  created_at: string
+}
+
 export interface GPSReplayData {
   mode: string
   count: number

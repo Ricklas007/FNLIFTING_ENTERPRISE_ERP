@@ -8,7 +8,7 @@ working.
 from app.models.ai import AIAssistantSuggestion, AIProviderSetting, AutomationRule, AutomationRun, OCRJob
 from app.models.compliance import ComplianceRequirement
 from app.models.fleet_enterprise import FleetCommand
-from app.models.fleet_tracking import FleetAlert, FleetAlertRule, Geofence, GeofenceEvent, GPSTrackerDevice
+from app.models.fleet_tracking import FleetAlert, FleetAlertRule, Geofence, GeofenceEvent, GPSTrackerDevice, OperationalPlace
 from app.models.gps import GPSIntegrationEvent
 from app.models.hr_enterprise import AttendanceRecord, LeaveRequest, OrgPosition
 from app.models.licensing import SaaSLicense
@@ -45,5 +45,6 @@ __all__ = [
     "PayrollRun",
     "SaaSLicense",
     "SecurityEvent",
+    "OperationalPlace",
     "UserMFAFactor",
 ]

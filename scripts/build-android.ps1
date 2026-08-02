@@ -189,6 +189,25 @@ function Get-SdkManager {
     return Join-Path $SdkRoot "cmdline-tools\latest\bin\sdkmanager.bat"
 }
 
+function ConvertTo-AndroidLocalPropertiesValue {
+    param([string]$Path)
+
+    $normalized = ($Path -replace "\\", "/")
+    $builder = [System.Text.StringBuilder]::new()
+
+    foreach ($character in $normalized.ToCharArray()) {
+        $codePoint = [int][char]$character
+        if ($codePoint -gt 127) {
+            [void]$builder.Append(("\u{0:x4}" -f $codePoint))
+        }
+        else {
+            [void]$builder.Append($character)
+        }
+    }
+
+    return $builder.ToString()
+}
+
 function Test-AndroidSdk {
     param([string]$SdkRoot)
 
@@ -211,8 +230,57 @@ function Write-AndroidLocalProperties {
     param([string]$SdkRoot)
 
     $localProperties = Join-Path $Root "android\local.properties"
-    $escaped = ($SdkRoot -replace "\\", "/")
+    $escaped = ConvertTo-AndroidLocalPropertiesValue -Path $SdkRoot
     Set-Content -LiteralPath $localProperties -Value "sdk.dir=$escaped" -Encoding ASCII
+}
+
+function Get-CachedGradleExecutable {
+    $gradleCommand = Get-Command gradle.bat -ErrorAction SilentlyContinue
+    if (-not $gradleCommand) {
+        $gradleCommand = Get-Command gradle -ErrorAction SilentlyContinue
+    }
+
+    if ($gradleCommand -and $gradleCommand.Source) {
+        return $gradleCommand.Source
+    }
+
+    $searchRoots = @()
+    if ($env:GRADLE_USER_HOME) {
+        $searchRoots += (Join-Path $env:GRADLE_USER_HOME "wrapper\dists")
+    }
+    $searchRoots += (Join-Path $Root ".runtime\gradle-home\wrapper\dists")
+    $searchRoots += (Join-Path $env:USERPROFILE ".gradle\wrapper\dists")
+
+    foreach ($searchRoot in $searchRoots | Where-Object { $_ } | Select-Object -Unique) {
+        if (-not (Test-Path -LiteralPath $searchRoot)) {
+            continue
+        }
+
+        $cachedGradle = Get-ChildItem -LiteralPath $searchRoot -Recurse -Filter "gradle.bat" -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match "\\gradle-[^\\]+\\bin\\gradle\.bat$" } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+        if ($cachedGradle) {
+            return $cachedGradle.FullName
+        }
+    }
+
+    return $null
+}
+
+function Invoke-AndroidGradle {
+    param([string[]]$Arguments)
+
+    $cachedGradle = Get-CachedGradleExecutable
+    if ($cachedGradle) {
+        Write-Host "Using cached Gradle executable=$cachedGradle"
+        & $cachedGradle @Arguments
+        return
+    }
+
+    Write-Host "Using Gradle wrapper because no cached Gradle executable was found..."
+    & .\gradlew.bat @Arguments
 }
 
 function Invoke-SdkManager {
@@ -409,7 +477,7 @@ try {
 
     Push-Location (Join-Path $Root "android")
     try {
-        & .\gradlew.bat assembleDebug
+        Invoke-AndroidGradle -Arguments @("assembleDebug")
         if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
         }

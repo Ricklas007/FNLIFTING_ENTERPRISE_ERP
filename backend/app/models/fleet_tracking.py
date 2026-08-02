@@ -39,6 +39,26 @@ class Geofence(RecordMixin, Base):
     dwell_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
+class OperationalPlace(RecordMixin, Base):
+    __tablename__ = "operational_places"
+    __table_args__ = (UniqueConstraint("company_id", "source", "external_id", name="uq_operational_place_source_external"),)
+
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    geofence_id: Mapped[str | None] = mapped_column(ForeignKey("geofences.id"), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(180), index=True)
+    category: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    latitude: Mapped[float] = mapped_column(Float, index=True)
+    longitude: Mapped[float] = mapped_column(Float, index=True)
+    source: Mapped[str] = mapped_column(String(80), default="MANUAL", index=True)
+    external_id: Mapped[str | None] = mapped_column(String(180), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(30), default="active", index=True)
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retrieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class GeofenceEvent(RecordMixin, Base):
     __tablename__ = "geofence_events"
     __table_args__ = (UniqueConstraint("company_id", "dedupe_key", name="uq_geofence_event_dedupe"),)

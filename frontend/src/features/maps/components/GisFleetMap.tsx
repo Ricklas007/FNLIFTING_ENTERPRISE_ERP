@@ -3,7 +3,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import maplibregl, { type Map as MapLibreMap, type Marker } from 'maplibre-gl'
 import { Protocol } from 'pmtiles'
-import { AlertTriangle, Database, Map, MapPin, RefreshCw, Satellite, Trash2, Truck } from 'lucide-react'
+import { AlertTriangle, Database, Map, MapPin, RefreshCw, Satellite, Trash2 } from 'lucide-react'
 
 import { api, ApiError, tokenStore } from '@/services/api'
 import type { GeofenceRecord, GPSPosition, GPSReplayData, MapPlaceResult } from '@/types'
@@ -250,21 +250,26 @@ export function RealFleetMap({ positions, geofences = [], replay = null, onMarke
     setPlaceError(null)
     setPlaceMessage(null)
     try {
-      await api.createGeofence({
-        name: place.title,
-        geofence_type: geofenceTypeForPlace(place),
-        shape_type: 'point',
-        geometry: {
-          center: [place.longitude, place.latitude],
-          source: place.source,
-          external_id: place.external_id,
-          address: place.address,
-          category: place.category,
-          retrieved_at: place.retrieved_at,
+      await api.createOperationalPlace({
+        title: place.title,
+        category: place.category,
+        address: place.address,
+        phone: place.phone,
+        website: place.website,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        source: place.source,
+        external_id: place.external_id,
+        retrieved_at: place.retrieved_at,
+        metadata: {
+          rating: place.rating,
+          reviews: place.reviews,
+          hours: place.hours,
+          thumbnail: place.thumbnail,
         },
+        create_geofence: true,
+        geofence_type: geofenceTypeForPlace(place),
         radius_meters: 120,
-        alert_on_enter: true,
-        alert_on_exit: false,
         status: 'active',
       })
       setPlaceMessage(`${place.title} guardado como ponto operacional.`)

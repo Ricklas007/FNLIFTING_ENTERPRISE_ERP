@@ -59,6 +59,7 @@ from app.models.enterprise import (
     MFARecoveryCode,
     NotificationDelivery,
     OCRJob,
+    OperationalPlace,
     OrgPosition,
     PayrollItem,
     PayrollRun,
@@ -77,5 +78,5 @@ __all__ = [
     "DeviceRegistration", "EnterpriseSyncEvent", "FleetCommand", "FleetAlert", "FleetAlertRule", "Geofence", "GeofenceEvent",
     "GPSTrackerDevice", "GPSIntegrationEvent", "LeaveRequest", "MFAChallenge",
     "MFARecoveryCode", "NotificationDelivery", "OCRJob", "OrgPosition", "PayrollItem", "PayrollRun", "SaaSLicense", "SecurityEvent",
-    "UserMFAFactor",
+    "OperationalPlace", "UserMFAFactor",
 ]

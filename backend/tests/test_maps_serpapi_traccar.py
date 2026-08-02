@@ -158,6 +158,49 @@ def test_serpapi_endpoint_normalizes_google_maps_results(monkeypatch):
     api.close()
 
 
+def test_operational_places_persist_serpapi_result_with_geofence():
+    api = client()
+    headers = login_headers(api)
+    payload = {
+        "title": "Terminal Logístico Luanda",
+        "category": "terminal logístico",
+        "address": "Luanda",
+        "latitude": -8.839,
+        "longitude": 13.289,
+        "source": "SERPAPI_GOOGLE_MAPS",
+        "external_id": "serpapi-terminal-luanda",
+        "retrieved_at": "2026-08-02T04:00:00Z",
+        "metadata": {"rating": 4.6, "reviews": 12},
+        "create_geofence": True,
+        "geofence_type": "TERMINAL",
+        "radius_meters": 150,
+    }
+
+    created = api.post("/api/v1/fleet/operational-places", json=payload, headers=headers)
+
+    assert created.status_code == 201, created.text
+    data = created.json()
+    assert data["title"] == payload["title"]
+    assert data["source"] == "SERPAPI_GOOGLE_MAPS"
+    assert data["metadata"]["rating"] == 4.6
+    assert data["geofence_id"]
+
+    updated_payload = {**payload, "address": "Luanda - Porto", "metadata": {"rating": 4.7}}
+    updated = api.post("/api/v1/fleet/operational-places", json=updated_payload, headers=headers)
+    assert updated.status_code == 201, updated.text
+    assert updated.json()["id"] == data["id"]
+    assert updated.json()["address"] == "Luanda - Porto"
+
+    listed = api.get("/api/v1/fleet/operational-places?status=active&q=Terminal", headers=headers)
+    assert listed.status_code == 200, listed.text
+    assert [item["id"] for item in listed.json()].count(data["id"]) == 1
+
+    geofences = api.get("/api/v1/fleet/geofences", headers=headers)
+    assert geofences.status_code == 200, geofences.text
+    assert any(item["id"] == data["geofence_id"] and item["geofence_type"] == "TERMINAL" for item in geofences.json())
+    api.close()
+
+
 def test_traccar_disconnected_auth_devices_import_and_link(monkeypatch):
     api = client()
     headers = login_headers(api)

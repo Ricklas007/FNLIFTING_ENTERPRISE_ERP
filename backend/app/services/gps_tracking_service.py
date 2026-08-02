@@ -20,6 +20,7 @@ from app.models import (
     GPSIntegrationEvent,
     GPSPosition,
     GPSTrackerDevice,
+    OperationalPlace,
     Trip,
     Truck,
 )
@@ -120,6 +121,26 @@ def geofence_out(record: Geofence) -> dict[str, Any]:
         "alert_on_exit": record.alert_on_exit,
         "dwell_minutes": record.dwell_minutes,
         "status": record.status,
+        "created_at": record.created_at,
+    }
+
+
+def operational_place_out(record: OperationalPlace) -> dict[str, Any]:
+    return {
+        "id": record.id,
+        "title": record.title,
+        "category": record.category,
+        "address": record.address,
+        "phone": record.phone,
+        "website": record.website,
+        "latitude": record.latitude,
+        "longitude": record.longitude,
+        "source": record.source,
+        "external_id": record.external_id,
+        "geofence_id": record.geofence_id,
+        "status": record.status,
+        "metadata": _loads(record.metadata_json, {}),
+        "retrieved_at": record.retrieved_at,
         "created_at": record.created_at,
     }
 
