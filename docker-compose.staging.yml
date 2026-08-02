@@ -1,0 +1,37 @@
+services:
+  backend:
+    environment:
+      ENVIRONMENT: staging
+      DEBUG: "false"
+      AUTO_CREATE_SCHEMA: "false"
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-fnlifting}:${POSTGRES_PASSWORD:-change-me-postgres-staging}@postgres:5432/${POSTGRES_DB:-fnlifting_staging}
+      STORAGE_PROVIDER: MINIO
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-fnlifting-staging}
+      STORAGE_ENDPOINT_URL: http://minio:9000
+      STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
+      STORAGE_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-fnlifting}
+      STORAGE_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-change-me-minio-staging}
+      STORAGE_SECURE: "false"
+      SYNC_REMOTE_URL: ${SYNC_REMOTE_URL:-http://backend:8000/api/v1/enterprise/sync}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  postgres:
+    profiles: []
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fnlifting_staging}
+      POSTGRES_USER: ${POSTGRES_USER:-fnlifting}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-postgres-staging}
+
+  minio:
+    profiles: []
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-fnlifting}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-me-minio-staging}
+
+  frontend:
+    environment:
+      NGINX_ENTRYPOINT_QUIET_LOGS: "1"

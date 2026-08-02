@@ -1,0 +1,32 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: ["observability"]
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - fnlifting_prometheus:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me-grafana-local-only}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - fnlifting_grafana:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  fnlifting_prometheus:
+  fnlifting_grafana:

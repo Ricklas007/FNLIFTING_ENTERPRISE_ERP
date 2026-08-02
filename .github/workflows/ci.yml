@@ -28,6 +28,7 @@ jobs:
       - run: alembic heads
       - run: python seed.py
       - run: pytest
+      - run: python tools/preflight.py --json
 
   backend-postgres:
     runs-on: ubuntu-latest
@@ -79,4 +80,34 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - run: npm run lint
       - run: npm run build
+
+  security-and-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Secret marker scan
+        run: |
+          if grep -RInE "(AIza[0-9A-Za-z_-]{20,}|sk_[0-9A-Za-z]{20,}|BEGIN (RSA|OPENSSH|PRIVATE) KEY)" --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.runtime .; then
+            echo "Potential secret found"
+            exit 1
+          fi
+      - name: Docker compose config
+        run: |
+          SECRET_KEY=ci-secret-key-with-more-than-32-characters \
+          BACKUP_ENCRYPTION_KEY=ci-backup-key-with-more-than-32-characters \
+          DATABASE_URL=sqlite:////app/data/fnlifting.db \
+          CORS_ORIGINS=http://localhost:8080 \
+          ALLOWED_HOSTS=backend,localhost,127.0.0.1 \
+          STORAGE_PROVIDER=LOCAL \
+          STORAGE_BUCKET=fnlifting-ci \
+          docker compose -f docker-compose.yml config >/tmp/fnlifting-compose.yml
+      - name: Docker compose staging config
+        run: |
+          SECRET_KEY=ci-secret-key-with-more-than-32-characters \
+          BACKUP_ENCRYPTION_KEY=ci-backup-key-with-more-than-32-characters \
+          POSTGRES_PASSWORD=ci-postgres-password \
+          MINIO_ROOT_PASSWORD=ci-minio-password-with-length \
+          docker compose -f docker-compose.yml -f docker-compose.staging.yml config >/tmp/fnlifting-compose-staging.yml

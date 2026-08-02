@@ -43,6 +43,40 @@ function Test-CommandExists {
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+function Read-EnvFile {
+    param([string]$Path)
+    $result = @{}
+    if (-not (Test-Path $Path)) {
+        return $result
+    }
+    foreach ($line in Get-Content $Path) {
+        $trimmed = $line.Trim()
+        if (-not $trimmed -or $trimmed.StartsWith("#") -or -not $trimmed.Contains("=")) {
+            continue
+        }
+        $parts = $trimmed.Split("=", 2)
+        $result[$parts[0].Trim()] = $parts[1].Trim().Trim('"').Trim("'")
+    }
+    return $result
+}
+
+function Test-Truthy {
+    param([string]$Value)
+    if ($null -eq $Value) {
+        $Value = ""
+    }
+    return @("1", "true", "yes", "on", "enabled") -contains $Value.ToLowerInvariant()
+}
+
+function First-NonEmpty {
+    foreach ($value in $args) {
+        if ($null -ne $value -and "$value".Length -gt 0) {
+            return "$value"
+        }
+    }
+    return ""
+}
+
 Push-Location $Root
 try {
     $criticalPatterns = @(
@@ -82,6 +116,49 @@ try {
     }
     if (-not $frontendPackage.dependencies.pmtiles) {
         Add-Failure "frontend/package.json must include pmtiles"
+    }
+
+    $backendEnv = Read-EnvFile "backend/.env"
+    $frontendEnv = Read-EnvFile "frontend/.env.local"
+
+    if (-not (Test-CommandExists "docker")) {
+        Add-Warning "Docker CLI not available; PostgreSQL/MinIO/staging compose runtime validation is BLOCKED_EXTERNAL"
+    }
+    else {
+        Invoke-Checked "Docker compose base config" {
+            docker compose -f docker-compose.yml config *> $null
+        }
+        Invoke-Checked "Docker compose staging config" {
+            if (-not $env:SECRET_KEY) { $env:SECRET_KEY = "readiness-secret-key-with-more-than-32-characters" }
+            if (-not $env:BACKUP_ENCRYPTION_KEY) { $env:BACKUP_ENCRYPTION_KEY = "readiness-backup-key-with-more-than-32" }
+            if (-not $env:POSTGRES_PASSWORD) { $env:POSTGRES_PASSWORD = "readiness-postgres-password" }
+            if (-not $env:MINIO_ROOT_PASSWORD) { $env:MINIO_ROOT_PASSWORD = "readiness-minio-password" }
+            docker compose -f docker-compose.yml -f docker-compose.staging.yml config *> $null
+        }
+    }
+
+    $serpEnabled = Test-Truthy (First-NonEmpty $backendEnv["SERPAPI_ENABLED"] $env:SERPAPI_ENABLED)
+    $serpKey = First-NonEmpty $backendEnv["SERPAPI_KEY"] $env:SERPAPI_KEY
+    $serpKeySet = [bool]($serpKey -and $serpKey.Length -gt 0)
+    if (-not $serpEnabled -or -not $serpKeySet) {
+        Add-Warning "SerpApi is REQUIRED_NOT_CONFIGURED for place search; configure only outside Git"
+    }
+    else {
+        Add-Warning "SerpApi key is configured but live provider status is not asserted by this unauthenticated gate; keep latest AUTH_ERROR/CONNECTED evidence in docs"
+    }
+
+    $googleKey = First-NonEmpty $frontendEnv["VITE_GOOGLE_MAPS_API_KEY"] $env:VITE_GOOGLE_MAPS_API_KEY $backendEnv["GOOGLE_MAPS_API_KEY"] $env:GOOGLE_MAPS_API_KEY
+    $googleKeySet = [bool]$googleKey
+    if (-not $googleKeySet) {
+        Add-Warning "Google Maps key is REQUIRED_NOT_CONFIGURED for Google renderer; MapLibre fallback remains available"
+    }
+
+    if (-not (Test-Path "android/app/build/outputs/apk/debug/app-debug.apk")) {
+        Add-Warning "Android APK debug artifact is not present; Android runtime acceptance remains pending"
+    }
+
+    if (-not (Test-Path "docs/PHASE_14_CLOUD_ACCEPTANCE.md")) {
+        Add-Warning "Phase 14 cloud acceptance document is missing"
     }
 
     if (Select-String -Path "frontend/src/components/RealFleetMap.tsx" -Pattern "angola-map|fallbackPosition|fallback-only|<svg" -Quiet) {

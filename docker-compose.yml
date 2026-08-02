@@ -4,7 +4,7 @@ services:
       context: ./backend
     environment:
       APP_NAME: FNLIFTING Enterprise ERP
-      APP_VERSION: 0.12.0
+      APP_VERSION: 0.12.1
       ENVIRONMENT: production
       DEBUG: "false"
       AUTO_CREATE_SCHEMA: "false"
@@ -15,6 +15,18 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-backend,localhost,127.0.0.1}
       SYNC_REMOTE_URL: ${SYNC_REMOTE_URL:-}
+      DATA_DIR: /app/data
+      UPLOAD_DIR: /app/data/uploads
+      ATTACHMENT_DIR: /app/data/attachments
+      MAP_DIR: /app/data/maps
+      MAP_CACHE_DIR: /app/data/map-cache
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-LOCAL}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-fnlifting}
+      STORAGE_ENDPOINT_URL: ${STORAGE_ENDPOINT_URL:-}
+      STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
+      STORAGE_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY_ID:-}
+      STORAGE_SECRET_ACCESS_KEY: ${STORAGE_SECRET_ACCESS_KEY:-}
+      STORAGE_SECURE: ${STORAGE_SECURE:-true}
       WORKERS: ${BACKEND_WORKERS:-2}
     volumes:
       - fnlifting_data:/app/data
@@ -26,6 +38,38 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    restart: unless-stopped
+
+  minio:
+    image: quay.io/minio/minio:latest
+    profiles: ["storage"]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-fnlifting}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-me-minio-local-only}
+    volumes:
+      - fnlifting_minio:/data
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["queue"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - fnlifting_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   postgres:
@@ -59,3 +103,5 @@ services:
 volumes:
   fnlifting_data:
   fnlifting_pgdata:
+  fnlifting_minio:
+  fnlifting_redis:

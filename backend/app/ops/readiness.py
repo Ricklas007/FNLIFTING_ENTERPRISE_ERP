@@ -29,6 +29,7 @@ from app.core.config import (
 from app.database.base import Base
 from app.database.session import SessionLocal, engine
 from app.models import BackupRecord, Company, SyncQueue, User
+from app.storage import StorageError, get_storage_provider
 
 
 CheckStatus = str
@@ -215,6 +216,18 @@ def _data_directory_checks() -> list[dict]:
     return [_check("data_dirs", "Diretórios locais", "pass", "Pastas de dados existem e aceitam escrita.")]
 
 
+def _storage_checks() -> list[dict]:
+    try:
+        health = get_storage_provider().health()
+    except StorageError as exc:
+        status = "fail" if settings.is_production else "warn"
+        return [_check("object_storage", "Object storage", status, str(exc), "Configure STORAGE_PROVIDER=LOCAL, MINIO ou S3.")]
+    if health.status == "CONNECTED":
+        return [_check("object_storage", "Object storage", "pass", health.message)]
+    status = "fail" if settings.is_production and settings.storage_provider.upper() in {"S3", "MINIO"} else "warn"
+    return [_check("object_storage", "Object storage", status, health.message, "Valide bucket, endpoint e credenciais fora do Git.")]
+
+
 def _business_checks() -> list[dict]:
     checks = []
     try:
@@ -292,6 +305,7 @@ def build_readiness_report() -> dict:
         *_runtime_check(),
         *_database_checks(),
         *_data_directory_checks(),
+        *_storage_checks(),
         *_business_checks(),
     ]
     summary = Counter(check["status"] for check in checks)

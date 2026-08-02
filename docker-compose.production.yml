@@ -1,0 +1,38 @@
+services:
+  backend:
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      AUTO_CREATE_SCHEMA: "false"
+      SECRET_KEY: ${SECRET_KEY:?Defina SECRET_KEY real fora do Git}
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL PostgreSQL de produção fora do Git}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?Defina BACKUP_ENCRYPTION_KEY fora do Git}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Defina o domínio HTTPS do frontend}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:?Defina hosts reais do backend}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-S3}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:?Defina bucket de produção}
+      STORAGE_ENDPOINT_URL: ${STORAGE_ENDPOINT_URL:-}
+      STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
+      STORAGE_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY_ID:?Defina access key fora do Git}
+      STORAGE_SECRET_ACCESS_KEY: ${STORAGE_SECRET_ACCESS_KEY:?Defina secret key fora do Git}
+      STORAGE_SECURE: ${STORAGE_SECURE:-true}
+    volumes:
+      - fnlifting_data:/app/data
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  frontend:
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+
+  postgres:
+    profiles: ["disabled-production-external-db"]
+
+  minio:
+    profiles: ["disabled-production-external-storage"]
+
+  redis:
+    profiles: ["queue"]
