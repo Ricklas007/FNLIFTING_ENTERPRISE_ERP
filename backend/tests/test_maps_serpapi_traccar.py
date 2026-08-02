@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from pathlib import Path
 from urllib.error import HTTPError
 
@@ -198,6 +199,79 @@ def test_operational_places_persist_serpapi_result_with_geofence():
     geofences = api.get("/api/v1/fleet/geofences", headers=headers)
     assert geofences.status_code == 200, geofences.text
     assert any(item["id"] == data["geofence_id"] and item["geofence_type"] == "TERMINAL" for item in geofences.json())
+    api.close()
+
+
+def test_offline_mbtiles_package_lifecycle_with_validation_and_tiles(tmp_path, monkeypatch):
+    map_root = tmp_path / "maps"
+    package_dir = map_root / "packages"
+    package_dir.mkdir(parents=True)
+    monkeypatch.setattr(maps, "MAP_DIR", map_root)
+    monkeypatch.setattr(maps, "PACKAGE_DIR", package_dir)
+    monkeypatch.setattr(maps, "MANIFEST_PATH", map_root / "manifest.json")
+
+    source = tmp_path / "angola-test.mbtiles"
+    with sqlite3.connect(source) as conn:
+        conn.execute("create table metadata (name text, value text)")
+        conn.execute("create table tiles (zoom_level integer, tile_column integer, tile_row integer, tile_data blob)")
+        conn.executemany("insert into metadata (name, value) values (?, ?)", [
+            ("name", "Angola QA"),
+            ("format", "png"),
+            ("bounds", "11.45,-18.1,24.1,-4.3"),
+            ("minzoom", "0"),
+            ("maxzoom", "1"),
+            ("attribution", "QA licensed source"),
+        ])
+        conn.execute("insert into tiles (zoom_level, tile_column, tile_row, tile_data) values (?, ?, ?, ?)", (0, 0, 0, b"\x89PNG\r\n\x1a\nqa"))
+
+    api = client()
+    headers = login_headers(api)
+    payload = {
+        "source_path": str(source),
+        "activate": True,
+        "source": "QA licensed supplier",
+        "license": "QA-LICENSE",
+        "version": "2026-08",
+        "min_zoom": 0,
+        "max_zoom": 1,
+        "bounds": [11.45, -18.1, 24.1, -4.3],
+    }
+
+    imported = api.post("/api/v1/maps/packages/import", json=payload, headers=headers)
+    assert imported.status_code == 201, imported.text
+    package = imported.json()
+    assert package["provider"] == "OFFLINE_MBTILES"
+    assert package["active"] is True
+    assert package["latest_validation"]["status"] == "valid"
+    assert package["latest_validation"]["checks"]["checksum"]["status"] == "pass"
+
+    listed = api.get("/api/v1/maps/packages", headers=headers)
+    assert listed.status_code == 200, listed.text
+    assert any(item["id"] == package["id"] for item in listed.json())
+
+    active = api.get("/api/v1/maps/packages/active", headers=headers)
+    assert active.status_code == 200, active.text
+    assert active.json()["active"] is True
+    assert active.json()["package"]["id"] == package["id"]
+
+    metadata = api.get(f"/api/v1/maps/packages/{package['id']}/metadata", headers=headers)
+    assert metadata.status_code == 200, metadata.text
+    assert metadata.json()["metadata"]["name"] == "Angola QA"
+
+    revalidated = api.post(f"/api/v1/maps/packages/{package['id']}/validate", headers=headers)
+    assert revalidated.status_code == 200, revalidated.text
+    assert revalidated.json()["latest_validation"]["status"] == "valid"
+
+    tile = api.get(f"/api/v1/maps/packages/{package['id']}/tiles/0/0/0.png", headers=headers)
+    assert tile.status_code == 200, tile.text
+    assert tile.headers["content-type"].startswith("image/png")
+    assert tile.content.startswith(b"\x89PNG")
+
+    deactivated = api.post(f"/api/v1/maps/packages/{package['id']}/deactivate", headers=headers)
+    assert deactivated.status_code == 200, deactivated.text
+
+    deleted = api.delete(f"/api/v1/maps/packages/{package['id']}", headers=headers)
+    assert deleted.status_code == 200, deleted.text
     api.close()
 
 

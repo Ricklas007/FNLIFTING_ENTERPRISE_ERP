@@ -447,6 +447,35 @@ export function OfflineMapManager() {
     try {
       await api.activateMapPackage(id)
       await load()
+      setError(null)
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'Não foi possível ativar o pacote de mapa.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function validate(id: string) {
+    setBusy(true)
+    try {
+      await api.validateMapPackage(id)
+      await load()
+      setError(null)
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'Não foi possível validar o pacote de mapa.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function deactivate(id: string) {
+    setBusy(true)
+    try {
+      await api.deactivateMapPackageById(id)
+      await load()
+      setError(null)
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'Não foi possível desativar o pacote de mapa.')
     } finally {
       setBusy(false)
     }
@@ -458,6 +487,9 @@ export function OfflineMapManager() {
     try {
       await api.removeMapPackage(id)
       await load()
+      setError(null)
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'Não foi possível remover o pacote de mapa.')
     } finally {
       setBusy(false)
     }
@@ -489,7 +521,8 @@ export function OfflineMapManager() {
         {status?.packages.length ? status.packages.map((item) => (
           <article key={item.id} className={status.active_package?.id === item.id ? 'active' : ''}>
             <div><strong>{item.original_name}</strong><span>{item.provider} · {item.tile_format || 'formato n/d'} · {formatBytes(item.size_bytes)}</span><small>SHA256 {item.checksum_sha256.slice(0, 16)}… · {item.source || 'manual'} · {item.license || 'licença n/d'}</small></div>
-            <div><button className="module-secondary-button" disabled={busy || status.active_package?.id === item.id} onClick={() => void activate(item.id)}>Ativar</button><button className="icon-danger" disabled={busy} onClick={() => void remove(item.id)} title="Remover"><Trash2 /></button></div>
+            <small>Estado {item.status || 'importado'} · validação {item.latest_validation?.status || 'pendente'}</small>
+            <div><button className="module-secondary-button" disabled={busy} onClick={() => void validate(item.id)}>Validar</button>{status.active_package?.id === item.id ? <button className="module-secondary-button" disabled={busy} onClick={() => void deactivate(item.id)}>Desativar</button> : <button className="module-secondary-button" disabled={busy} onClick={() => void activate(item.id)}>Ativar</button>}<button className="icon-danger" disabled={busy} onClick={() => void remove(item.id)} title="Remover"><Trash2 /></button></div>
           </article>
         )) : <p className="empty-map-packages">Sem pacotes offline importados. O sistema não mostra mapa fictício: use online MapLibre ou importe PMTiles/MBTiles real.</p>}
       </div>

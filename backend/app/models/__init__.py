@@ -57,6 +57,10 @@ from app.models.enterprise import (
     LeaveRequest,
     MFAChallenge,
     MFARecoveryCode,
+    MapPackage,
+    MapPackageActivation,
+    MapPackageUsage,
+    MapPackageValidation,
     NotificationDelivery,
     OCRJob,
     OperationalPlace,
@@ -77,6 +81,6 @@ __all__ = [
     "AIAssistantSuggestion", "AIProviderSetting", "AttendanceRecord", "AutomationRule", "AutomationRun", "ComplianceRequirement", "CustomerMessage",
     "DeviceRegistration", "EnterpriseSyncEvent", "FleetCommand", "FleetAlert", "FleetAlertRule", "Geofence", "GeofenceEvent",
     "GPSTrackerDevice", "GPSIntegrationEvent", "LeaveRequest", "MFAChallenge",
-    "MFARecoveryCode", "NotificationDelivery", "OCRJob", "OrgPosition", "PayrollItem", "PayrollRun", "SaaSLicense", "SecurityEvent",
+    "MFARecoveryCode", "MapPackage", "MapPackageActivation", "MapPackageUsage", "MapPackageValidation", "NotificationDelivery", "OCRJob", "OrgPosition", "PayrollItem", "PayrollRun", "SaaSLicense", "SecurityEvent",
     "OperationalPlace", "UserMFAFactor",
 ]

@@ -12,6 +12,7 @@ from app.models.fleet_tracking import FleetAlert, FleetAlertRule, Geofence, Geof
 from app.models.gps import GPSIntegrationEvent
 from app.models.hr_enterprise import AttendanceRecord, LeaveRequest, OrgPosition
 from app.models.licensing import SaaSLicense
+from app.models.maps import MapPackage, MapPackageActivation, MapPackageUsage, MapPackageValidation
 from app.models.notifications import NotificationDelivery
 from app.models.payroll import PayrollItem, PayrollRun
 from app.models.security import DeviceRegistration, MFAChallenge, MFARecoveryCode, SecurityEvent, UserMFAFactor
@@ -38,6 +39,10 @@ __all__ = [
     "LeaveRequest",
     "MFAChallenge",
     "MFARecoveryCode",
+    "MapPackage",
+    "MapPackageActivation",
+    "MapPackageUsage",
+    "MapPackageValidation",
     "NotificationDelivery",
     "OCRJob",
     "OrgPosition",

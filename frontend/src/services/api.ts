@@ -83,7 +83,9 @@ async function request<T>(path: string, options: RequestInit = {}, authenticated
     const payload = await response.json().catch(() => null)
     const detail = Array.isArray(payload?.detail)
       ? payload.detail.map((item: { msg: string }) => item.msg).join('. ')
-      : payload?.detail
+      : typeof payload?.detail === 'object' && payload.detail !== null
+        ? (payload.detail.message || JSON.stringify(payload.detail))
+        : payload?.detail
     throw new ApiError(detail || 'Ocorreu um erro inesperado.', response.status)
   }
   return response.json() as Promise<T>
@@ -199,9 +201,14 @@ export const api = {
   testSerpApi: () => request<SerpApiStatus>('/integrations/serpapi/test', { method: 'POST' }, true),
   mapStatus: () => request<Record<string, unknown>>('/maps/status', {}, true),
   setMapMode: (mode: 'auto' | 'offline' | 'online') => request<Record<string, unknown>>('/maps/mode', { method: 'POST', body: JSON.stringify({ mode }) }, true),
+  mapPackages: () => request<Record<string, unknown>[]>('/maps/packages', {}, true),
+  activeMapPackage: () => request<Record<string, unknown>>('/maps/packages/active', {}, true),
   importMapPackage: (payload: Record<string, unknown>) => request<Record<string, unknown>>('/maps/packages/import', { method: 'POST', body: JSON.stringify(payload) }, true),
+  validateMapPackage: (id: string) => request<Record<string, unknown>>(`/maps/packages/${id}/validate`, { method: 'POST' }, true),
   activateMapPackage: (id: string) => request<Record<string, unknown>>(`/maps/packages/${id}/activate`, { method: 'POST' }, true),
   deactivateMapPackage: () => request<Record<string, unknown>>('/maps/packages/deactivate', { method: 'POST' }, true),
+  deactivateMapPackageById: (id: string) => request<Record<string, unknown>>(`/maps/packages/${id}/deactivate`, { method: 'POST' }, true),
+  mapPackageMetadata: (id: string) => request<Record<string, unknown>>(`/maps/packages/${id}/metadata`, {}, true),
   removeMapPackage: (id: string) => request<Record<string, unknown>>(`/maps/packages/${id}`, { method: 'DELETE' }, true),
   searchMapPlaces: (params: URLSearchParams) => request<MapPlaceResult[]>(`/maps/places/search?${params.toString()}`, {}, true),
   createGPSPosition: (payload: Record<string, unknown>) => request<GPSPosition>('/fleet/gps/positions', { method: 'POST', body: JSON.stringify(payload) }, true),

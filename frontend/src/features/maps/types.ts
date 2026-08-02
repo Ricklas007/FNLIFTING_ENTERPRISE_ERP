@@ -15,6 +15,7 @@ export interface MapPackage {
   provider: 'OFFLINE_PMTILES' | 'OFFLINE_MBTILES'
   original_name: string
   stored_name?: string
+  mime_type?: string | null
   size_bytes: number
   checksum_sha256: string
   source?: string
@@ -26,6 +27,15 @@ export interface MapPackage {
   tile_format?: string | null
   imported_at?: string
   metadata?: Record<string, unknown>
+  status?: 'imported' | 'validated' | 'active' | 'invalid' | 'deleted' | string
+  active?: boolean
+  latest_validation?: {
+    id: string
+    status: 'valid' | 'failed' | 'pending' | string
+    checks: Record<string, { status?: string; value?: unknown; message?: string } | unknown>
+    errors: string[]
+    validated_at?: string | null
+  } | null
 }
 
 export interface MapStatus {
