@@ -205,3 +205,45 @@ class GPSProviderHealthOut(BaseModel):
     message: str
     configured: bool
     tested_at: datetime
+
+class GPSPilotSimulationRequest(BaseModel):
+    run_code: str | None = Field(default=None, min_length=3, max_length=60)
+    include_report: bool = True
+
+
+class GPSPilotChecklistOut(BaseModel):
+    classification: list[str]
+    hardware_required: bool
+    methods: list[str]
+    items: list[dict[str, Any]]
+    simulator: dict[str, Any]
+
+
+class GPSPilotSimulationOut(BaseModel):
+    run_code: str
+    trip_id: str
+    trip_code: str
+    truck_id: str
+    truck_plate: str
+    driver_id: str
+    driver_name: str
+    client_id: str
+    client_name: str
+    device_id: str
+    device_uid: str
+    route_name: str
+    route_points: list[dict[str, Any]]
+    distance_km: float
+    positions_created: int
+    alerts_created: int
+    geofence_events_created: int
+    replay_count: int
+    stops_count: int
+    status_flow: list[str]
+    offline_buffer: dict[str, Any]
+    security: dict[str, Any]
+    traccar: dict[str, Any]
+    vendor_api: dict[str, Any]
+    classifications: list[str]
+    generated_at: datetime
+    pdf_report: dict[str, Any]

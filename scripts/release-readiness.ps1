@@ -161,6 +161,14 @@ try {
         Add-Warning "Phase 14 cloud acceptance document is missing"
     }
 
+    if (-not (Test-Path "docs/PHASE_15_GPS_PILOT_ACCEPTANCE.md")) {
+        Add-Warning "Phase 15 GPS pilot acceptance document is missing"
+    }
+
+    if (-not (Test-Path "backend/tests/test_gps_pilot_acceptance.py")) {
+        Add-Warning "Phase 15 GPS pilot acceptance test is missing"
+    }
+
     if (Select-String -Path "frontend/src/components/RealFleetMap.tsx" -Pattern "angola-map|fallbackPosition|fallback-only|<svg" -Quiet) {
         Add-Failure "Operational fleet map still contains static/fallback drawing implementation"
     }

@@ -28,7 +28,11 @@ class BackendManager {
     this.child = null
   }
 
-  env() {
+  env(spec = null) {
+    const backendRoot = spec?.backendRoot || path.join(rootDir(this.app), 'backend')
+    const existingPythonPath = process.env.PYTHONPATH || ''
+    const pythonPathParts = [backendRoot]
+    if (existingPythonPath) pythonPathParts.push(existingPythonPath)
     return {
       ...process.env,
       APP_NAME: 'FNLIFTING Enterprise ERP',
@@ -60,23 +64,39 @@ class BackendManager {
       BACKUP_ENCRYPTION_KEY: readOrCreateSecret(this.paths, 'backup.key'),
       CORS_ORIGINS: `http://127.0.0.1:${this.frontendPort},http://localhost:${this.frontendPort}`,
       ALLOWED_HOSTS: '127.0.0.1,localhost',
+      PYTHONPATH: pythonPathParts.join(path.delimiter),
     }
   }
 
   commandArgs(command) {
     const standalone = backendStandaloneExe(this.app)
     if (fs.existsSync(standalone)) {
-      return { command: standalone, args: [command], cwd: path.dirname(standalone), mode: 'standalone' }
+      const backendRoot = path.dirname(standalone)
+      return { command: standalone, args: [command], cwd: backendRoot, backendRoot, mode: 'standalone' }
+    }
+    const legacyBackendRoot = path.join(process.resourcesPath || rootDir(this.app), 'backend')
+    const legacyPython = path.join(legacyBackendRoot, '.venv', 'Scripts', 'python.exe')
+    const legacyEntrypoint = path.join(legacyBackendRoot, 'desktop_runtime.py')
+    if (this.app.isPackaged && fs.existsSync(legacyPython) && fs.existsSync(legacyEntrypoint)) {
+      return {
+        command: legacyPython,
+        args: [legacyEntrypoint, command],
+        cwd: legacyBackendRoot,
+        backendRoot: legacyBackendRoot,
+        mode: 'packaged-python-legacy',
+      }
     }
     if (this.app.isPackaged) {
-      throw new Error(`Backend standalone não encontrado em ${standalone}. O pacote está incompleto.`)
+      throw new Error(`Backend standalone nao encontrado em ${standalone}. O pacote esta incompleto.`)
     }
     const python = backendDevPython(this.app)
-    if (!fs.existsSync(python)) throw new Error(`Python de desenvolvimento não encontrado em ${python}.`)
+    if (!fs.existsSync(python)) throw new Error(`Python de desenvolvimento nao encontrado em ${python}.`)
+    const backendRoot = path.join(rootDir(this.app), 'backend')
     return {
       command: python,
       args: [backendDevEntrypoint(this.app), command],
-      cwd: path.join(rootDir(this.app), 'backend'),
+      cwd: backendRoot,
+      backendRoot,
       mode: 'development-python',
     }
   }
@@ -89,7 +109,7 @@ class BackendManager {
       const err = this.logManager.stream(logName)
       const child = spawn(spec.command, spec.args, {
         cwd: spec.cwd,
-        env: this.env(),
+        env: this.env(spec),
         windowsHide: true,
         stdio: ['ignore', out, err],
       })
@@ -110,7 +130,7 @@ class BackendManager {
         if (settled) return
         settled = true
         clearTimeout(timer)
-        code === 0 ? resolve() : reject(new Error(`Backend ${command} terminou com código ${code}. Consulte ${this.paths.logs}.`))
+        code === 0 ? resolve() : reject(new Error(`Backend ${command} terminou com codigo ${code}. Consulte ${this.paths.logs}.`))
       })
     })
   }
@@ -126,7 +146,7 @@ class BackendManager {
     const err = this.logManager.stream('backend')
     this.child = spawn(spec.command, spec.args, {
       cwd: spec.cwd,
-      env: this.env(),
+      env: this.env(spec),
       windowsHide: true,
       stdio: ['ignore', out, err],
     })

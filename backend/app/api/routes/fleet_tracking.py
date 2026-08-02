@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -27,6 +27,9 @@ from app.schemas.fleet_tracking import (
     GeofenceOut,
     GeofenceUpdate,
     GPSDeviceIngestRequest,
+    GPSPilotChecklistOut,
+    GPSPilotSimulationOut,
+    GPSPilotSimulationRequest,
     GPSProviderHealthOut,
     GPSProviderOut,
     GPSReplayOut,
@@ -38,6 +41,7 @@ from app.schemas.fleet_tracking import (
     OperationalPlaceUpdate,
 )
 from app.services.enterprise_utils import now_utc, to_json
+from app.services.gps_pilot_service import gps_pilot_report_path, onboarding_checklist_payload, simulate_gps_pilot
 from app.services.gps_tracking_service import (
     alert_out,
     device_token,
@@ -235,6 +239,23 @@ def _position_query(company_id: str, truck_id: str | None, trip_id: str | None, 
         query = query.where(GPSPosition.recorded_at <= date_to)
     return query.order_by(GPSPosition.recorded_at.asc())
 
+
+
+
+@router.get("/gps/pilot/checklist", response_model=GPSPilotChecklistOut)
+def gps_pilot_checklist(user: User = Depends(require_permission("fleet.view"))):
+    return onboarding_checklist_payload()
+
+
+@router.post("/gps/pilot/simulate", response_model=GPSPilotSimulationOut, status_code=status.HTTP_201_CREATED)
+def run_gps_pilot_simulation(payload: GPSPilotSimulationRequest, user: User = Depends(require_permission("fleet.manage")), db: Session = Depends(get_db)):
+    return simulate_gps_pilot(db, user, run_code=payload.run_code, include_report=payload.include_report)
+
+
+@router.get("/gps/pilot/reports/{filename}")
+def download_gps_pilot_report(filename: str, user: User = Depends(require_permission("fleet.view"))):
+    path = gps_pilot_report_path(filename)
+    return FileResponse(path, media_type="application/pdf", filename=path.name)
 
 @router.get("/gps/providers", response_model=list[GPSProviderOut])
 def list_gps_providers(user: User = Depends(require_permission("fleet.view"))):

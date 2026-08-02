@@ -117,3 +117,23 @@ Executar no final da retentativa:
 |---|---|
 | `/ready` com backend tempor√°rio | HTTP 200, `ready`, 0 warnings, 0 failures |
 | `scripts\release-readiness.ps1 -SkipTests -SkipFrontendBuild` com backend tempor√°rio em `127.0.0.1:8000` | 0 failures, 0 warnings |
+
+## Fase 15 - GPS piloto operacional
+
+Implementado nesta continuaÁ„o:
+
+- `GET /api/v1/fleet/gps/pilot/checklist` para onboarding de rastreador fisico.
+- `POST /api/v1/fleet/gps/pilot/simulate` para executar viagem piloto Luanda-Malanje com camiao/device unicos por run.
+- `GET /api/v1/fleet/gps/pilot/reports/{filename}` para download de relatorio PDF.
+- Simulacao de buffer offline com flush ordenado.
+- Prova de deduplicacao de evento GPS repetido.
+- Alertas/geofences/replay usando a pipeline GPS existente.
+- Relatorio PDF renderizado e corrigido apos QA visual.
+
+Evidencia alvo:
+
+| Validacao | Resultado |
+|---|---|
+| `backend\.venv\Scripts\python.exe -m pytest backend\tests\test_gps_pilot_acceptance.py -q --basetemp=.runtime\pytest-tmp-phase15-pilot-rerun2` | 1 passed |
+| Render PDF Poppler | PNG gerado em `.runtime\pdf-review\phase15-gps-pilot-fixed.png`, sem clipping visual |
+| Classificacao | `GPS_SIMULATED_VALIDATED`; `GPS_PHYSICAL_PENDING_HARDWARE`; `TRACCAR_PIPELINE_READY_PENDING_EXTERNAL_RUNTIME`; `VENDOR_API_NOT_AVAILABLE` |
