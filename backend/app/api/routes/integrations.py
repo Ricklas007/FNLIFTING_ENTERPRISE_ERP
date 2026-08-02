@@ -5,15 +5,16 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request as UrlRequest, urlopen
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
+from app.api.routes import maps
 from app.core.security import hash_password
 from app.database.session import get_db
 from app.models import GPSTrackerDevice, Truck, User
@@ -52,6 +53,34 @@ class TraccarLinkRequest(BaseModel):
     truck_id: str
 
 
+@router.post("/serpapi/test", response_model=maps.SerpApiStatus)
+def serpapi_test(request: Request, user: User = Depends(require_permission("settings.manage")), db: Session = Depends(get_db)):
+    try:
+        maps._check_serpapi_rate(f"serpapi-test:{user.id}")
+    except HTTPException as exc:
+        snapshot = maps.serpapi_status_snapshot()
+        result = maps.SerpApiStatus(
+            status="RATE_LIMITED",
+            configured=snapshot.configured,
+            enabled=snapshot.enabled,
+            base_url=snapshot.base_url,
+            message=str(exc.detail),
+            checked_at=datetime.now(timezone.utc),
+            cache_ttl_seconds=snapshot.cache_ttl_seconds,
+            rate_limit_per_minute=snapshot.rate_limit_per_minute,
+            last_success_at=snapshot.last_success_at,
+            last_error=str(exc.detail),
+            metrics=snapshot.metrics,
+        )
+        maps.audit_serpapi_event(db, request, user, "test", "Teste SerpApi bloqueado por rate limit local", {"status": result.status})
+        db.commit()
+        return result
+    result = maps.serpapi_health_check()
+    maps.audit_serpapi_event(db, request, user, "test", "Teste SerpApi executado", {"status": result.status, "configured": result.configured, "enabled": result.enabled})
+    db.commit()
+    return result
+
+
 def _truthy(value: str | None) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on", "enabled"}
 
@@ -63,14 +92,14 @@ def _traccar_config() -> tuple[bool, str, float]:
     return bool(enabled and base_url), base_url, timeout
 
 
-def _traccar_request(path: str, query: dict[str, Any] | None = None) -> Request:
+def _traccar_request(path: str, query: dict[str, Any] | None = None) -> UrlRequest:
     configured, base_url, _ = _traccar_config()
     if not configured:
         raise HTTPException(status_code=503, detail="Traccar não configurado. Defina TRACCAR_ENABLED=true e TRACCAR_BASE_URL/TRACCAR_URL no backend.")
     url = f"{base_url}{path}"
     if query:
         url = f"{url}?{urlencode(query)}"
-    request = Request(url, headers={"Accept": "application/json", "User-Agent": "FNLIFTING-ERP/0.12.1"})
+    request = UrlRequest(url, headers={"Accept": "application/json", "User-Agent": "FNLIFTING-ERP/0.12.1"})
     token = os.getenv("TRACCAR_TOKEN", "").strip()
     username = os.getenv("TRACCAR_USERNAME", "").strip()
     password = os.getenv("TRACCAR_PASSWORD", "").strip()

@@ -38,6 +38,7 @@ Rotas principais:
 - `GET /api/v1/maps/packages/{package_id}/tiles/{z}/{x}/{y}.{extension}`
 - `GET /api/v1/maps/packages/{package_id}/pmtiles`
 - `GET /api/v1/maps/places/search`
+- `POST /api/v1/integrations/serpapi/test`
 
 Os mapas ficam fora do instalador e fora de `Program Files`, em `userData/maps`.
 
@@ -66,9 +67,13 @@ SERPAPI_KEY=
 SERPAPI_BASE_URL=https://serpapi.com/search
 SERPAPI_TIMEOUT=8
 SERPAPI_RATE_LIMIT_PER_MINUTE=20
+SERPAPI_RATE_LIMIT=20
+SERPAPI_CACHE_TTL=300
 ```
 
-Sem chave, o endpoint responde `503` e a interface mostra mensagem explícita. Os resultados não são persistidos automaticamente: o utilizador precisa escolher “Guardar” para criar ponto operacional/geofence.
+Sem chave, a pesquisa responde `503` e o teste dedicado devolve `NOT_CONFIGURED`. Com chave inválida/rejeitada, o teste devolve `AUTH_ERROR` sem expor o segredo. A integração classifica `CONNECTED`, `AUTH_ERROR`, `QUOTA_EXCEEDED`, `TIMEOUT`, `RATE_LIMITED`, `PROVIDER_ERROR` e `DEGRADED`, aplica rate limit local, cache TTL e grava auditoria sanitizada.
+
+Os resultados não são persistidos automaticamente: o utilizador precisa escolher “Guardar” para criar ponto operacional/geofence quando o modelo operacional dedicado estiver disponível.
 
 ## Validação executada
 

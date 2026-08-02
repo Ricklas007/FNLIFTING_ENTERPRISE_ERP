@@ -1,21 +1,46 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import {
-  AlertTriangle, ArrowRightLeft, BarChart3, Building2, CalendarDays, Check,
-  CircleDollarSign, Cloud, CloudOff, Command, Database, Download, FileBarChart, FileCheck2,
-  FileSpreadsheet, FileText, HardDriveDownload, History, LockKeyhole, PackageCheck,
-  Plus, ReceiptText, RefreshCw, Save, Settings2, ShieldCheck, UploadCloud, X,
+  AlertTriangle, ArrowRightLeft, BarChart3, CalendarDays, Check,
+  CircleDollarSign, Cloud, CloudOff, Command, Database, Download, FileCheck2,
+  FileSpreadsheet, FileText, HardDriveDownload, History, LockKeyhole, MapPinned, PackageCheck,
+  Plus, ReceiptText, RefreshCw, Save, Search, Settings2, ShieldCheck, UploadCloud, X,
 } from 'lucide-react'
 import { api, ApiError } from '@/services/api'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import type {
   AdvancedReport, BackupRecord, Equipment, PortalBilling, PortalOverview,
-  ReadinessReport, ServiceRequestRecord, SyncQueueRecord, SyncRunRecord, SyncSummary, SystemSetting,
+  ReadinessReport, SerpApiStatus, ServiceRequestRecord, SyncQueueRecord, SyncRunRecord, SyncSummary, SystemSetting,
 } from '@/types'
 import { cn } from '@/lib/utils'
 
 const money = (value: number | string) => new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 }).format(Number(value))
 const shortDate = (value?: string) => value ? new Date(value.includes('T') ? value : `${value}T00:00:00`).toLocaleDateString('pt-AO') : '—'
 const statusLabel: Record<string, string> = { pending: 'Pendente', synced: 'Sincronizado', conflict: 'Conflito', failed: 'Falhou', submitted: 'Submetido', reviewing: 'Em análise', scheduled: 'Agendado', completed: 'Concluído', rejected: 'Rejeitado', cancelled: 'Cancelado', issued: 'Emitida', partial: 'Parcial', paid: 'Paga', overdue: 'Vencida', ready: 'Pronto', not_ready: 'Não pronto', pass: 'OK', warn: 'Aviso', fail: 'Falha' }
+
+type SystemMapProvider = {
+  available?: boolean
+  configured?: boolean
+  status?: string
+  reason?: string
+  message?: string
+  style?: string
+  role?: string
+  last_success_at?: string
+  last_error?: string
+  rate_limit_per_minute?: number
+  cache_ttl_seconds?: number
+  metrics?: Record<string, unknown>
+}
+
+type SystemMapStatus = {
+  mode?: 'auto' | 'offline' | 'online'
+  default_provider?: string
+  active_provider?: string
+  offline_active?: boolean
+  providers?: Record<string, SystemMapProvider>
+  active_package?: { original_name?: string; provider?: string; imported_at?: string } | null
+  packages?: Array<{ id: string; original_name?: string; provider?: string }>
+}
 
 function Header({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {
   return <header className="module-page-header"><div><span>{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>{action}</header>
@@ -93,15 +118,72 @@ export function SyncPage() {
 
 export function SettingsPage() {
   const [records, setRecords] = useState<SystemSetting[]>([])
+  const [mapStatus, setMapStatus] = useState<SystemMapStatus | null>(null)
+  const [serpApi, setSerpApi] = useState<SerpApiStatus | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const load = useCallback(async () => { try { setRecords(await api.settings()) } catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Não foi possível carregar as configurações.') } }, [])
+  const load = useCallback(async () => {
+    setError(null)
+    try {
+      const [settings, maps] = await Promise.all([api.settings(), api.mapStatus()])
+      const typedMaps = maps as SystemMapStatus
+      setRecords(settings)
+      setMapStatus(typedMaps)
+      const serpProvider = typedMaps.providers?.SERPAPI_PLACE_SEARCH
+      if (serpProvider) {
+        setSerpApi({
+          provider: 'SERPAPI_GOOGLE_MAPS',
+          status: serpProvider.status || (serpProvider.available ? 'DEGRADED' : 'NOT_CONFIGURED'),
+          configured: Boolean(serpProvider.available),
+          enabled: Boolean(serpProvider.available),
+          message: serpProvider.message || 'Estado SerpApi disponível no backend.',
+          checked_at: new Date().toISOString(),
+          cache_ttl_seconds: serpProvider.cache_ttl_seconds || 0,
+          rate_limit_per_minute: serpProvider.rate_limit_per_minute || 0,
+          last_success_at: serpProvider.last_success_at,
+          last_error: serpProvider.last_error,
+          metrics: serpProvider.metrics || {},
+        })
+      }
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : 'Não foi possível carregar as configurações.')
+    }
+  }, [])
   useEffect(() => { void load() }, [load])
   async function save(record: SystemSetting, value: string) { setBusy(record.id); setError(null); try { await api.updateSetting(record.id, value); await load() } catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Não foi possível guardar a configuração.') } finally { setBusy(null) } }
+  async function changeMapMode(mode: 'auto' | 'offline' | 'online') { setBusy('map-mode'); setError(null); try { setMapStatus(await api.setMapMode(mode) as SystemMapStatus) } catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Não foi possível alterar o modo do mapa.') } finally { setBusy(null) } }
+  async function testSerpApi() { setBusy('serpapi-test'); setError(null); try { const result = await api.testSerpApi(); setSerpApi(result); setMapStatus(await api.mapStatus() as SystemMapStatus) } catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Não foi possível testar a SerpApi.') } finally { setBusy(null) } }
   const groups = useMemo(() => records.reduce<Record<string, SystemSetting[]>>((result, item) => { (result[item.category] ??= []).push(item); return result }, {}), [records])
+  const providers = mapStatus?.providers ?? {}
+  const google = providers.GOOGLE_ONLINE
+  const mapLibre = providers.ONLINE_RASTER
+  const offlineLabel = mapStatus?.active_package?.original_name || `${mapStatus?.packages?.length ?? 0} pacote(s) disponíveis`
+  const activeProviderLabel = mapStatus?.active_provider === 'ONLINE_RASTER' ? 'MapLibre/OSM online' : mapStatus?.active_provider || 'Não definido'
+  const serpStatus = serpApi?.status || providers.SERPAPI_PLACE_SEARCH?.status || 'NOT_CONFIGURED'
   return <>
-    <Header eyebrow="Administração · Fase 6" title="Configurações empresariais" description="Políticas locais de empresa, segurança, finanças, relatórios, backup e sincronização." />
+    <Header eyebrow="Administração · Fase 13" title="Configurações empresariais" description="Políticas locais, segurança, mapas, geolocalização, integrações externas, backup e sincronização." />
     <Feedback error={error} />
+    <section className="sync-summary-grid maps-geo-summary">
+      <article><span className={mapStatus?.offline_active ? 'online' : ''}><MapPinned /></span><p><small>Provider ativo</small><strong>{activeProviderLabel}</strong><em>Modo {mapStatus?.mode || 'auto'} · padrão {mapStatus?.default_provider || 'ONLINE_RASTER'}</em></p></article>
+      <article><span className={google?.configured ? 'online' : 'warning'}><Cloud /></span><p><small>Google Maps JS</small><strong>{google?.configured ? 'Chave configurada' : 'Não configurado'}</strong><em>{google?.configured ? 'Pronta para uso oficial no browser' : google?.reason || 'Defina VITE_GOOGLE_MAPS_API_KEY no frontend'}</em></p></article>
+      <article><span className={mapLibre?.available ? 'online' : 'warning'}><Database /></span><p><small>MapLibre/OSM</small><strong>{mapLibre?.available ? 'Online disponível' : 'Indisponível'}</strong><em>{mapLibre?.style || mapLibre?.reason || 'Raster escuro com atribuição OSM/CARTO'}</em></p></article>
+      <article><span className={mapStatus?.offline_active ? 'online' : 'offline'}><PackageCheck /></span><p><small>Offline PMTiles/MBTiles</small><strong>{mapStatus?.offline_active ? 'Ativo' : 'Em espera'}</strong><em>{offlineLabel}</em></p></article>
+    </section>
+    <section className="settings-grid maps-settings-grid">
+      <article>
+        <header><Search /><div><h2>Mapas e Geolocalização</h2><p>Health-check de providers, modo de fallback e pesquisa de locais.</p></div></header>
+        <div className="setting-row"><div><strong>Modo do mapa</strong><small>Auto usa offline quando houver pacote ativo; online força MapLibre/Google conforme renderer.</small></div><label><select value={mapStatus?.mode || 'auto'} onChange={event => void changeMapMode(event.target.value as 'auto' | 'offline' | 'online')} disabled={busy === 'map-mode'}><option value="auto">Automático</option><option value="offline">Offline</option><option value="online">Online</option></select></label></div>
+        <div className="setting-row"><div><strong>SerpApi Place Search</strong><small>{serpApi?.message || providers.SERPAPI_PLACE_SEARCH?.message || 'Teste a ligação sem expor a chave.'}</small></div><Status value={serpStatus === 'CONNECTED' ? 'pass' : serpStatus === 'NOT_CONFIGURED' ? 'warn' : 'fail'} /></div>
+        <div className="setting-row"><div><strong>Última validação</strong><small>{serpApi?.checked_at ? new Date(serpApi.checked_at).toLocaleString('pt-AO') : 'Ainda não testada'} · cache {serpApi?.cache_ttl_seconds ?? providers.SERPAPI_PLACE_SEARCH?.cache_ttl_seconds ?? 0}s · limite {serpApi?.rate_limit_per_minute ?? providers.SERPAPI_PLACE_SEARCH?.rate_limit_per_minute ?? 0}/min</small></div><button className="module-secondary-button" onClick={() => void testSerpApi()} disabled={busy === 'serpapi-test'}><RefreshCw className={busy === 'serpapi-test' ? 'spin' : ''} /> Testar</button></div>
+        {(serpApi?.last_error || providers.SERPAPI_PLACE_SEARCH?.last_error) && <div className="danger-note"><AlertTriangle /><p><strong>Último erro do provider</strong><span>{serpApi?.last_error || providers.SERPAPI_PLACE_SEARCH?.last_error}</span></p></div>}
+      </article>
+      <article>
+        <header><ShieldCheck /><div><h2>Proteção de segredos</h2><p>As chaves ficam nos ficheiros locais ignorados pelo Git e nunca são apresentadas integralmente.</p></div></header>
+        <div className="setting-row"><div><strong>Google Maps API key</strong><small>{google?.configured ? 'Configurada no ambiente frontend/backend; valor mascarado por segurança.' : 'Ausente no ambiente.'}</small></div><Status value={google?.configured ? 'pass' : 'warn'} /></div>
+        <div className="setting-row"><div><strong>SerpApi key</strong><small>{serpApi?.configured || providers.SERPAPI_PLACE_SEARCH?.available ? 'Configurada no backend; valor mascarado por segurança.' : 'Ausente no backend.'}</small></div><Status value={serpApi?.configured || providers.SERPAPI_PLACE_SEARCH?.available ? 'pass' : 'warn'} /></div>
+        <div className="setting-row"><div><strong>Auditoria</strong><small>Pesquisas e testes SerpApi gravam evento sem URL assinada nem API key.</small></div><Status value="pass" /></div>
+      </article>
+    </section>
     <section className="settings-grid">{Object.entries(groups).map(([category, items]) => <article key={category}><header><Settings2 /><div><h2>{category}</h2><p>{items?.length} parâmetros controlados</p></div></header>{items?.map(item => <SettingRow key={item.id} item={item} busy={busy === item.id} onSave={save} />)}</article>)}</section>
   </>
 }

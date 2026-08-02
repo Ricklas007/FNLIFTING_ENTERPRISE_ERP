@@ -439,6 +439,21 @@ export interface TraccarStatus {
   checked_at: string
 }
 
+export interface SerpApiStatus {
+  provider: 'SERPAPI_GOOGLE_MAPS'
+  status: string
+  configured: boolean
+  enabled: boolean
+  base_url?: string
+  message: string
+  checked_at: string
+  cache_ttl_seconds: number
+  rate_limit_per_minute: number
+  last_success_at?: string
+  last_error?: string
+  metrics: Record<string, unknown>
+}
+
 export interface TraccarDevice {
   external_id: string
   name: string

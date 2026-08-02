@@ -25,6 +25,12 @@ Browser: Codex in-app browser
   - `.map-unavailable-panel` vazio.
 - Screenshot visual capturada durante a execução no browser integrado confirmou o mapa dark real com Angola, estradas e labels, aproximando a referência enviada pelo utilizador.
 
+## Atualizacao 2026-07-31
+
+- SerpApi: chave local configurada; teste real via backend devolveu `AUTH_ERROR`. O ERP agora mostra esse estado no painel `Configuracoes empresariais -> Mapas e Geolocalizacao`, sem expor o segredo.
+- Google Maps: chave local configurada no frontend; provider oficial existe, mas ainda falta validacao visual no browser com o renderer Google e as restricoes/billing da conta.
+- MapLibre/OSM: build frontend continua valido com provider online raster real.
+
 ## Limites honestos
 
 - Esta validação prova renderização cartográfica online MapLibre no ambiente local.

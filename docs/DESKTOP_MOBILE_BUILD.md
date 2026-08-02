@@ -131,6 +131,8 @@ npm run desktop:dist
 
 Instale Android Studio, JDK e Android SDK. Depois:
 
+Atualizacao 2026-07-31: nesta maquina foram detectados Android Studio e JBR em `C:\Program Files\Android\Android Studio`, e `adb` em `C:\Android\platform-tools`. Ainda nao existe SDK completo com `platforms` e `build-tools`; por isso `android/local.properties` nao foi escrito para nao apontar para SDK incompleto.
+
 ```powershell
 npm run mobile:sync
 npm run android:open

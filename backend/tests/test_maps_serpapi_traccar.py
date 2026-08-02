@@ -49,6 +49,41 @@ def test_maps_status_exposes_online_serpapi_and_google_provider_state(monkeypatc
     api.close()
 
 
+def test_serpapi_test_endpoint_reports_not_configured_and_connected(monkeypatch):
+    api = client()
+    headers = login_headers(api)
+    monkeypatch.delenv("SERPAPI_ENABLED", raising=False)
+    monkeypatch.delenv("SERPAPI_KEY", raising=False)
+    maps._SERPAPI_CALLS.clear()
+    maps._SERPAPI_CACHE.clear()
+
+    missing = api.post("/api/v1/integrations/serpapi/test", headers=headers)
+    assert missing.status_code == 200, missing.text
+    assert missing.json()["status"] == "NOT_CONFIGURED"
+
+    monkeypatch.setenv("SERPAPI_ENABLED", "true")
+    monkeypatch.setenv("SERPAPI_KEY", "test-serpapi-key")
+    monkeypatch.setenv("SERPAPI_RATE_LIMIT", "20")
+
+    def fake_urlopen(request, timeout=8):
+        assert "engine=google_maps" in request.full_url
+        assert "api_key=test-serpapi-key" in request.full_url
+        return _FakeResponse({
+            "local_results": [{
+                "place_id": "place-test",
+                "title": "Luanda",
+                "gps_coordinates": {"latitude": -8.839, "longitude": 13.289},
+            }]
+        })
+
+    monkeypatch.setattr(maps, "urlopen", fake_urlopen)
+    connected = api.post("/api/v1/integrations/serpapi/test", headers=headers)
+    assert connected.status_code == 200, connected.text
+    assert connected.json()["status"] == "CONNECTED"
+    assert connected.json()["configured"] is True
+    api.close()
+
+
 def test_serpapi_missing_key_normalization_timeout_and_rate_limit(monkeypatch):
     api = client()
     headers = login_headers(api)
@@ -75,7 +110,8 @@ def test_serpapi_missing_key_normalization_timeout_and_rate_limit(monkeypatch):
 
     monkeypatch.setenv("SERPAPI_ENABLED", "true")
     monkeypatch.setenv("SERPAPI_KEY", "test-serpapi-key")
-    monkeypatch.setenv("SERPAPI_RATE_LIMIT_PER_MINUTE", "1")
+    monkeypatch.delenv("SERPAPI_RATE_LIMIT_PER_MINUTE", raising=False)
+    monkeypatch.setenv("SERPAPI_RATE_LIMIT", "1")
     maps._SERPAPI_CALLS.clear()
     maps._check_serpapi_rate("user-rate")
     with pytest.raises(Exception) as exc:

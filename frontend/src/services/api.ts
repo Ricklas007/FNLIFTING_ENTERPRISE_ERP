@@ -9,7 +9,7 @@ import type {
   SyncSummary, SystemSetting, LoginResponse, MfaSetup, EnterpriseOverview, EnterpriseNotification,
   EnterpriseDevice, SessionRecord, FleetCommandCenter, FleetComplianceCenter, AutomationCenter, AIAssistantCenter, EmployeePortal, OrgChart, ExecutiveBI,
   ComplianceItem, LicenseStatus, GeofenceRecord, FleetAlertRecord, GPSProviderHealth, GPSProviderRecord, GPSReplayData, GPSTrackerDeviceRecord, MapPlaceResult,
-  TraccarDevice, TraccarStatus,
+  SerpApiStatus, TraccarDevice, TraccarStatus,
 } from '@/types'
 
 declare global {
@@ -194,6 +194,7 @@ export const api = {
   traccarDevices: () => request<TraccarDevice[]>('/integrations/traccar/devices', {}, true),
   importTraccarDevices: (deviceIds: string[]) => request<TraccarDevice[]>('/integrations/traccar/import-devices', { method: 'POST', body: JSON.stringify({ device_ids: deviceIds }) }, true),
   linkTraccarDevice: (deviceId: string, truckId: string) => request<TraccarDevice>('/integrations/traccar/link-device', { method: 'POST', body: JSON.stringify({ device_id: deviceId, truck_id: truckId }) }, true),
+  testSerpApi: () => request<SerpApiStatus>('/integrations/serpapi/test', { method: 'POST' }, true),
   mapStatus: () => request<Record<string, unknown>>('/maps/status', {}, true),
   setMapMode: (mode: 'auto' | 'offline' | 'online') => request<Record<string, unknown>>('/maps/mode', { method: 'POST', body: JSON.stringify({ mode }) }, true),
   importMapPackage: (payload: Record<string, unknown>) => request<Record<string, unknown>>('/maps/packages/import', { method: 'POST', body: JSON.stringify(payload) }, true),
