@@ -671,6 +671,22 @@ export interface DocumentRecord {
   created_at: string
 }
 
+export interface MediaAttachment {
+  id: string
+  entity_type: string
+  entity_id: string
+  title: string
+  category: string
+  caption?: string
+  file_name: string
+  mime_type: string
+  file_size: number
+  checksum_sha256: string
+  thumbnail_available: boolean
+  status: string
+  created_at: string
+}
+
 export interface AuditLogRecord {
   id: string
   user_id?: string

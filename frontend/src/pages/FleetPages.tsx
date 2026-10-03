@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { AlertTriangle, CalendarClock, Fuel, Navigation, Plus, Radio, Route, Satellite, ShieldCheck, Star, Truck, UserRound } from 'lucide-react'
 
 import { OfflineMapManager, RealFleetMap } from '@/components/RealFleetMap'
+import { MediaAttachmentPanel } from '@/components/MediaAttachmentPanel'
 import { cn } from '@/lib/utils'
-import { ErrorBanner, hasPermission, LoadingRows, Modal, PageHeader, SubmitButton } from '@/pages/HRPages'
+import { hasPermission } from '@/lib/permissions'
+import { ErrorBanner, LoadingRows, Modal, PageHeader, SubmitButton } from '@/pages/HRPages'
 import { api, ApiError } from '@/services/api'
-import { useAuth } from '@/store/AuthContext'
+import { useAuth } from '@/store/useAuth'
 import type { Client, Driver, FleetAlertRecord, FleetIncident, FleetSummary, GeofenceRecord, GPSPosition, GPSProviderHealth, GPSProviderRecord, GPSReplayData, GPSTrackerDeviceRecord, TraccarDevice, TraccarStatus, TripRecord, TruckRecord } from '@/types'
 
 const fleetLabels: Record<string, string> = {
@@ -132,7 +134,8 @@ export function FleetPage() {
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [trucks, setTrucks] = useState<TruckRecord[]>([])
   const [tab, setTab] = useState<'trucks' | 'drivers'>('trucks')
-  const [modal, setModal] = useState<'truck' | 'driver' | null>(null)
+  const [modal, setModal] = useState<'truck' | 'driver' | 'media' | null>(null)
+  const [selectedTruck, setSelectedTruck] = useState<TruckRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -161,7 +164,7 @@ export function FleetPage() {
       <div className="fleet-tabs"><button className={tab === 'trucks' ? 'active' : ''} onClick={() => setTab('trucks')}>Camiões</button><button className={tab === 'drivers' ? 'active' : ''} onClick={() => setTab('drivers')}>Motoristas</button></div>
       {loading ? <LoadingRows /> : tab === 'trucks' ? (
         <section className="truck-grid">
-          {trucks.map((item) => <article key={item.id}><header><span><Truck /></span><FleetStatus value={item.status} /></header><h2>{item.plate}</h2><p>{item.brand} {item.model} · {item.manufacture_year || 'Ano n/d'}</p><dl><div><dt>Capacidade</dt><dd>{item.tank_capacity_liters?.toLocaleString('pt-AO') || '—'} L</dd></div><div><dt>Motorista</dt><dd>{item.driver?.full_name || 'Sem atribuição'}</dd></div><div className={expiring(item.insurance_expires_at) ? 'warning' : ''}><dt>Seguro</dt><dd>{item.insurance_expires_at ? new Date(`${item.insurance_expires_at}T00:00:00`).toLocaleDateString('pt-AO') : '—'}</dd></div><div className={expiring(item.inspection_expires_at) ? 'warning' : ''}><dt>Inspeção</dt><dd>{item.inspection_expires_at ? new Date(`${item.inspection_expires_at}T00:00:00`).toLocaleDateString('pt-AO') : '—'}</dd></div></dl></article>)}
+          {trucks.map((item) => <article key={item.id}><header><span><Truck /></span><FleetStatus value={item.status} /></header><h2>{item.plate}</h2><p>{item.brand} {item.model} · {item.manufacture_year || 'Ano n/d'}</p><dl><div><dt>Capacidade</dt><dd>{item.tank_capacity_liters?.toLocaleString('pt-AO') || '—'} L</dd></div><div><dt>Motorista</dt><dd>{item.driver?.full_name || 'Sem atribuição'}</dd></div><div className={expiring(item.insurance_expires_at) ? 'warning' : ''}><dt>Seguro</dt><dd>{item.insurance_expires_at ? new Date(`${item.insurance_expires_at}T00:00:00`).toLocaleDateString('pt-AO') : '—'}</dd></div><div className={expiring(item.inspection_expires_at) ? 'warning' : ''}><dt>Inspeção</dt><dd>{item.inspection_expires_at ? new Date(`${item.inspection_expires_at}T00:00:00`).toLocaleDateString('pt-AO') : '—'}</dd></div></dl>{canManage && <footer><button onClick={() => { setSelectedTruck(item); setModal('media') }}><ShieldCheck /> Anexos</button></footer>}</article>)}
         </section>
       ) : (
         <section className="drivers-grid">
@@ -170,6 +173,7 @@ export function FleetPage() {
       )}
       {modal === 'driver' && <Modal title="Novo motorista" subtitle="Carta, contacto, categoria e disponibilidade." onClose={() => setModal(null)}><DriverForm onSaved={load} onClose={() => setModal(null)} /></Modal>}
       {modal === 'truck' && <Modal wide title="Novo camião" subtitle="Dados técnicos, documentos e motorista atribuído." onClose={() => setModal(null)}><TruckForm drivers={drivers} onSaved={load} onClose={() => setModal(null)} /></Modal>}
+      {modal === 'media' && selectedTruck && <Modal wide title={`Anexos da viatura ${selectedTruck.plate}`} subtitle="Fotos, documentos da viatura, evidências e ficheiros de suporte." onClose={() => setModal(null)}><MediaAttachmentPanel entityType="truck" entityId={selectedTruck.id} canManage={canManage} title="Fotos e anexos da viatura" /></Modal>}
     </>
   )
 }
@@ -279,7 +283,7 @@ export function TripsPage() {
       setProviders(providerRows)
       setGpsDevices(trackerRows)
       setTraccarStatus(traccarInfo)
-      if (!selectedTruckId && vehicles[0]) setSelectedTruckId(vehicles[0].id)
+      if (vehicles[0]) setSelectedTruckId(current => current || vehicles[0].id)
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : 'Falha ao carregar viagens e GPS.')
     } finally {

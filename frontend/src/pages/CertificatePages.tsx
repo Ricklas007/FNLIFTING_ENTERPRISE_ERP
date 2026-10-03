@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Download, Edit3, Eye, FileBadge2, HardHat, Plus, QrCode, Send, ShieldCheck, Stamp, UserPlus } from 'lucide-react'
 
-import { ErrorBanner, hasPermission, LoadingRows, Modal, PageHeader, SubmitButton } from '@/pages/HRPages'
+import { ErrorBanner, LoadingRows, Modal, PageHeader, SubmitButton } from '@/pages/HRPages'
 import { api, ApiError } from '@/services/api'
-import { useAuth } from '@/store/AuthContext'
+import { useAuth } from '@/store/useAuth'
+import { hasPermission } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 import type { Certificate, Employee, Inspection, TechnicalSignatory } from '@/types'
 
@@ -132,7 +133,7 @@ export function CertificatesPage() {
   const canManage = hasPermission(user?.permissions ?? [], 'certificates.manage')
   const external = user?.account_type === 'external'
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
       const [certs, inspectionRecords, people, staff] = await Promise.all([
@@ -142,8 +143,8 @@ export function CertificatesPage() {
       setRecords(certs); setInspections(inspectionRecords); setSignatories(people); setEmployees(staff)
     } catch (reason) { setError(reason instanceof ApiError ? reason.message : 'Falha ao carregar certificados.') }
     finally { setLoading(false) }
-  }
-  useEffect(() => { void load() }, [])
+  }, [canManage])
+  useEffect(() => { void load() }, [load])
   useEffect(() => () => { if (preview?.url) URL.revokeObjectURL(preview.url) }, [preview])
 
   const available = inspections.filter(item => item.status === 'approved' && !records.some(cert => cert.inspection_id === item.id))

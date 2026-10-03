@@ -11,10 +11,29 @@ $Frontend = Join-Path $Root "frontend"
 $Python = Join-Path $Backend ".venv\Scripts\python.exe"
 $PreflightTemp = Join-Path $Root ".runtime\preflight-tmp"
 $PytestBaseTemp = Join-Path $Root ".runtime\preflight-pytest-basetemp"
+$RuntimeDir = Join-Path $Root ".runtime"
+$GateLockPath = Join-Path $RuntimeDir "fnlifting-gate.lock"
 
 if (-not (Test-Path $Python)) {
     throw "Ambiente Python nao encontrado. Execute .\scripts\setup.ps1 primeiro."
 }
+
+New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
+try {
+    $GateLockStream = [System.IO.File]::Open(
+        $GateLockPath,
+        [System.IO.FileMode]::OpenOrCreate,
+        [System.IO.FileAccess]::ReadWrite,
+        [System.IO.FileShare]::None
+    )
+}
+catch {
+    throw "Outro gate de release/preflight ja esta em execucao. Aguarde terminar antes de iniciar outro processo que use o mesmo SQLite."
+}
+$GateLockStream.SetLength(0)
+$GateLockMessage = [System.Text.Encoding]::UTF8.GetBytes("prod-preflight pid=$PID started=$(Get-Date -Format o)")
+$GateLockStream.Write($GateLockMessage, 0, $GateLockMessage.Length)
+$GateLockStream.Flush()
 
 Push-Location $Backend
 try {

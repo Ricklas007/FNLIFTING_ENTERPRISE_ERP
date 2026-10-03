@@ -1,4 +1,5 @@
-import { AuthProvider, useAuth } from '@/store/AuthContext'
+import { AuthProvider } from '@/store/AuthContext'
+import { useAuth } from '@/store/useAuth'
 import { BootSequence } from '@/components/BootSequence'
 import { AuthPage } from '@/pages/AuthPage'
 import { EnterpriseApp } from '@/pages/EnterpriseApp'

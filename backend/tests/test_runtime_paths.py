@@ -20,14 +20,13 @@ def test_operations_signatures_dir_uses_runtime_env(tmp_path: Path):
         [
             sys.executable,
             "-c",
-            (
-                "import os; "
-                "from pathlib import Path; "
-                "from app.api.routes.operations import SIGNATURE_DIR; "
-                "from app.core.config import BACKEND_DIR; "
-                "print(SIGNATURE_DIR); "
-                "assert Path(SIGNATURE_DIR).resolve() == Path(os.environ['SIGNATURE_DIR']).resolve(); "
-                "assert str(BACKEND_DIR) not in str(SIGNATURE_DIR)"
+                (
+                    "import os; "
+                    "from pathlib import Path; "
+                    "from app.core.config import BACKEND_DIR, SIGNATURE_DIR; "
+                    "print(SIGNATURE_DIR); "
+                    "assert Path(SIGNATURE_DIR).resolve() == Path(os.environ['SIGNATURE_DIR']).resolve(); "
+                    "assert str(BACKEND_DIR) not in str(SIGNATURE_DIR)"
             )
         ],
         cwd=Path(__file__).resolve().parents[1],

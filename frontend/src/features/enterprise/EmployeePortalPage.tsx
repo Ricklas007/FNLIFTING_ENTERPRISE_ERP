@@ -4,7 +4,8 @@ import { Fingerprint, Network, ShieldCheck, Users, WalletCards } from 'lucide-re
 import { ErrorBanner, LoadingRows, PageHeader } from '@/pages/HRPages'
 import { api, ApiError } from '@/services/api'
 import type { EmployeePortal, OrgChart } from '@/types'
-import { dateLabel, MetricCard, money } from './shared'
+import { dateLabel, money } from './formatters'
+import { MetricCard } from './shared'
 
 export function EmployeePortalPage() {
   const [data, setData] = useState<EmployeePortal | null>(null)

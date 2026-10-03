@@ -1,16 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, tokenStore } from '@/services/api'
-import type { MFARequiredResponse, User } from '@/types'
-
-interface AuthContextValue {
-  user: User | null
-  checking: boolean
-  login: (identifier: string, password: string, portal: 'staff' | 'client', remember: boolean) => Promise<MFARequiredResponse | void>
-  completeMfaLogin: (challengeId: string, code: string, remember: boolean) => Promise<void>
-  logout: () => Promise<void>
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null)
+import { AuthContext } from '@/store/auth-context'
+import type { User } from '@/types'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -46,10 +37,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({ user, checking, login, completeMfaLogin, logout }), [user, checking, login, completeMfaLogin, logout])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export function useAuth() {
-  const value = useContext(AuthContext)
-  if (!value) throw new Error('useAuth must be used inside AuthProvider')
-  return value
 }

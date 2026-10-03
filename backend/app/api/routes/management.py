@@ -2,6 +2,8 @@ import base64
 import binascii
 import hashlib
 import json
+import secrets
+from io import BytesIO
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -12,13 +14,13 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import require_permission
-from app.core.config import UPLOAD_DIR
+from app.api.deps import get_current_user, require_permission
+from app.core.config import ATTACHMENT_DIR, UPLOAD_DIR
 from app.database.session import get_db
 from app.models import (
     Asset, AssetMaintenance, AssetTransfer, AuditLog, Client, Department, Document,
-    DocumentVersion, Employee, Expense, Invoice, InvoiceItem, Payment, Receipt,
-    Revenue, User,
+    DocumentVersion, Employee, Equipment, Expense, Inspection, Invoice, InvoiceItem,
+    MediaAttachment, Payment, Receipt, Revenue, Truck, User,
 )
 from app.pdf.financial import generate_invoice_pdf, generate_receipt_pdf
 from app.schemas.auth import MessageResponse
@@ -26,13 +28,37 @@ from app.schemas.management import (
     AssetCreate, AssetOut, AssetSummary, AssetUpdate, AuditLogOut, AuditSummary,
     DocumentCreate, DocumentOut, DocumentReview, DocumentUpdate, DocumentVersionCreate, ExpenseCreate, ExpenseOut,
     FinanceSummary, InvoiceCreate, InvoiceOut, MaintenanceCreate, MaintenanceOut,
-    PaymentCreate, ReceiptOut, RevenueCreate, RevenueOut, TransferCreate, TransferOut,
+    MediaAttachmentCreate, MediaAttachmentOut, PaymentCreate, ReceiptOut, RevenueCreate, RevenueOut, TransferCreate, TransferOut,
 )
 
 
 router = APIRouter(prefix="/management", tags=["Património, Financeiro, Documentos e Auditoria"])
 DOCUMENT_DIR = UPLOAD_DIR / "documents"
+MEDIA_DIR = ATTACHMENT_DIR / "media"
 DOCUMENT_DIR.mkdir(parents=True, exist_ok=True)
+MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+MEDIA_ENTITIES = {
+    "employee": (Employee, "employees.view", "employees.manage"),
+    "worker": (Employee, "employees.view", "employees.manage"),
+    "equipment": (Equipment, "equipment.view", "equipment.manage"),
+    "truck": (Truck, "fleet.view", "fleet.manage"),
+    "vehicle": (Truck, "fleet.view", "fleet.manage"),
+    "asset": (Asset, "assets.view", "assets.manage"),
+    "client": (Client, "clients.view", "clients.manage"),
+    "inspection": (Inspection, "inspections.view", "inspections.manage"),
+    "document": (Document, "documents.view", "documents.manage"),
+}
+MEDIA_ALLOWED_TYPES = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "application/pdf": "pdf",
+    "text/plain": "txt",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+}
+MEDIA_MAX_BYTES = 10_000_000
 
 
 def commit_or_conflict(db: Session, detail: str) -> None:
@@ -58,10 +84,210 @@ def audit(db: Session, request: Request, user: User, action: str, entity_type: s
     ))
 
 
+def has_permission(user: User, permission: str) -> bool:
+    codes = user.permission_codes
+    return "*" in codes or permission in codes
+
+
+def canonical_media_entity(entity_type: str) -> str:
+    key = entity_type.strip().lower().replace("-", "_")
+    aliases = {"workers": "worker", "employees": "employee", "vehicles": "vehicle", "trucks": "truck", "assets": "asset", "equipment_items": "equipment"}
+    key = aliases.get(key, key)
+    if key not in MEDIA_ENTITIES:
+        raise HTTPException(status_code=422, detail="Tipo de entidade não suportado para anexos")
+    return key
+
+
+def ensure_media_entity_access(db: Session, user: User, entity_type: str, entity_id: str, action: str) -> str:
+    canonical = canonical_media_entity(entity_type)
+    model, view_permission, manage_permission = MEDIA_ENTITIES[canonical]
+    required = manage_permission if action == "manage" else view_permission
+    if not has_permission(user, required):
+        raise HTTPException(status_code=403, detail="Não possui permissão para os anexos desta entidade")
+    exists = db.scalar(select(model.id).where(
+        model.id == entity_id,
+        model.company_id == user.company_id,
+        model.deleted_at.is_(None),
+    ))
+    if not exists:
+        raise HTTPException(status_code=404, detail="Entidade associada ao anexo não encontrada")
+    return "employee" if canonical == "worker" else "truck" if canonical == "vehicle" else canonical
+
+
+def media_out(record: MediaAttachment) -> MediaAttachmentOut:
+    result = MediaAttachmentOut.model_validate(record)
+    result.thumbnail_available = bool(record.thumbnail_path and Path(record.thumbnail_path).exists())
+    return result
+
+
+def safe_media_name(file_name: str, fallback_extension: str) -> str:
+    base_name = Path(file_name or f"attachment.{fallback_extension}").name
+    safe = "".join(character for character in base_name if character.isalnum() or character in ".-_ ")[:120].strip(" .")
+    return safe or f"attachment.{fallback_extension}"
+
+
+def create_media_thumbnail(content: bytes, mime_type: str, destination: Path) -> str | None:
+    if not mime_type.startswith("image/"):
+        return None
+    try:
+        from PIL import Image  # type: ignore
+        image = Image.open(BytesIO(content))
+        image.thumbnail((360, 360))
+        if image.mode not in {"RGB", "RGBA"}:
+            image = image.convert("RGB")
+        image.save(destination)
+    except Exception:
+        destination.write_bytes(content)
+    return str(destination)
+
+
+def decode_media_payload(data_url: str) -> tuple[str, bytes, str]:
+    try:
+        header, encoded = data_url.split(",", 1)
+        mime_type = header.split(";")[0].removeprefix("data:").lower()
+        extension = MEDIA_ALLOWED_TYPES[mime_type]
+        content = base64.b64decode(encoded, validate=True)
+    except (ValueError, KeyError, binascii.Error) as exc:
+        raise HTTPException(status_code=422, detail="Anexo inválido; utilize PNG, JPEG, WEBP, PDF, TXT ou DOCX") from exc
+    if len(content) > MEDIA_MAX_BYTES:
+        raise HTTPException(status_code=422, detail="O anexo excede 10 MB")
+    if not content:
+        raise HTTPException(status_code=422, detail="O anexo está vazio")
+    return mime_type, content, extension
+
+
+def get_media_attachment(db: Session, attachment_id: str, user: User, action: str = "view") -> MediaAttachment:
+    record = db.scalar(select(MediaAttachment).where(
+        MediaAttachment.id == attachment_id,
+        MediaAttachment.company_id == user.company_id,
+        MediaAttachment.deleted_at.is_(None),
+    ))
+    if not record:
+        raise HTTPException(status_code=404, detail="Anexo não encontrado")
+    ensure_media_entity_access(db, user, record.entity_type, record.entity_id, action)
+    return record
+
+
+def media_file_response(path_value: str, mime_type: str, filename: str) -> FileResponse:
+    path = Path(path_value).resolve()
+    root = MEDIA_DIR.resolve()
+    if root not in path.parents and path != root:
+        raise HTTPException(status_code=403, detail="Caminho de anexo inválido")
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Ficheiro do anexo não encontrado")
+    return FileResponse(path, media_type=mime_type, filename=filename)
+
+
 def portal_client_id(db: Session, user: User) -> str | None:
     if user.account_type != "external":
         return None
     return db.scalar(select(Client.id).where(Client.portal_company_id == user.company_id, Client.deleted_at.is_(None)))
+
+
+@router.get("/media/entities/{entity_type}/{entity_id}", response_model=list[MediaAttachmentOut])
+def list_media_attachments(
+    entity_type: str,
+    entity_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    canonical = ensure_media_entity_access(db, user, entity_type, entity_id, "view")
+    records = db.scalars(select(MediaAttachment).where(
+        MediaAttachment.company_id == user.company_id,
+        MediaAttachment.entity_type == canonical,
+        MediaAttachment.entity_id == entity_id,
+        MediaAttachment.status == "active",
+        MediaAttachment.deleted_at.is_(None),
+    ).order_by(MediaAttachment.created_at.desc())).all()
+    return [media_out(record) for record in records]
+
+
+@router.post("/media/entities/{entity_type}/{entity_id}", response_model=MediaAttachmentOut, status_code=status.HTTP_201_CREATED)
+def create_media_attachment(
+    entity_type: str,
+    entity_id: str,
+    payload: MediaAttachmentCreate,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    canonical = ensure_media_entity_access(db, user, entity_type, entity_id, "manage")
+    mime_type, content, extension = decode_media_payload(payload.file_data_url)
+    checksum = hashlib.sha256(content).hexdigest()
+    safe_name = safe_media_name(payload.file_name, extension)
+    folder = MEDIA_DIR / canonical / entity_id
+    folder.mkdir(parents=True, exist_ok=True)
+    stored_name = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{secrets.token_hex(6)}-{safe_name}"
+    file_path = folder / stored_name
+    file_path.write_bytes(content)
+    thumb_path = create_media_thumbnail(content, mime_type, folder / f"thumb-{stored_name}")
+    record = MediaAttachment(
+        company_id=user.company_id,
+        entity_type=canonical,
+        entity_id=entity_id,
+        title=payload.title,
+        category=payload.category,
+        caption=payload.caption,
+        file_name=safe_name,
+        file_path=str(file_path),
+        mime_type=mime_type,
+        file_size=len(content),
+        checksum_sha256=checksum,
+        thumbnail_path=thumb_path,
+        uploaded_by=user.id,
+        created_by=user.id,
+    )
+    db.add(record)
+    db.flush()
+    audit(db, request, user, "upload", "media_attachment", record.id, f"{canonical}:{entity_id}", after={
+        "entity_type": canonical,
+        "entity_id": entity_id,
+        "file_name": safe_name,
+        "checksum": checksum,
+    })
+    db.commit()
+    db.refresh(record)
+    return media_out(record)
+
+
+@router.get("/media/{attachment_id}/download")
+def download_media_attachment(
+    attachment_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    record = get_media_attachment(db, attachment_id, user)
+    return media_file_response(record.file_path, record.mime_type, record.file_name)
+
+
+@router.get("/media/{attachment_id}/thumbnail")
+def thumbnail_media_attachment(
+    attachment_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    record = get_media_attachment(db, attachment_id, user)
+    if not record.thumbnail_path:
+        raise HTTPException(status_code=404, detail="Thumbnail não disponível para este anexo")
+    extension = MEDIA_ALLOWED_TYPES.get(record.mime_type, "bin")
+    return media_file_response(record.thumbnail_path, record.mime_type, f"thumb-{Path(record.file_name).stem}.{extension}")
+
+
+@router.delete("/media/{attachment_id}", response_model=MessageResponse)
+def archive_media_attachment(
+    attachment_id: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    record = get_media_attachment(db, attachment_id, user, "manage")
+    before = {"status": record.status}
+    record.status = "archived"
+    record.deleted_at = datetime.now(timezone.utc)
+    record.updated_by = user.id
+    audit(db, request, user, "archive", "media_attachment", record.id, record.file_name, before=before, after={"status": record.status})
+    db.commit()
+    return MessageResponse(message="Anexo arquivado")
 
 
 def employee_exists(db: Session, employee_id: str | None, company_id: str) -> None:

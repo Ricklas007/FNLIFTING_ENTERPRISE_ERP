@@ -4,7 +4,8 @@ import { Bell, Check, Cloud, Cpu, Fingerprint, LockKeyhole, ShieldCheck } from '
 import { ErrorBanner, LoadingRows, PageHeader } from '@/pages/HRPages'
 import { api, ApiError } from '@/services/api'
 import type { EnterpriseDevice, EnterpriseNotification, EnterpriseOverview, MfaSetup, SessionRecord } from '@/types'
-import { dateLabel, MetricCard } from './shared'
+import { dateLabel } from './formatters'
+import { MetricCard } from './shared'
 
 export function CloudSecurityPage() {
   const [overview, setOverview] = useState<EnterpriseOverview | null>(null)

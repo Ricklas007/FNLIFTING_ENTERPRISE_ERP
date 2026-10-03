@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.database.base import Base
 from app.database.session import SessionLocal, engine
 from app.main import app
-from app.models import Employee, User, UserMFAFactor, MFARecoveryCode, MFAChallenge
+from app.models import Asset, Client, Department, Driver, Employee, Equipment, EquipmentType, TechnicalSignatory, Truck, User, UserMFAFactor, MFARecoveryCode, MFAChallenge
 from seed import seed_database
 
 
@@ -53,3 +53,59 @@ def first_employee_id() -> str:
         employee_id = db.scalar(select(Employee.id).where(Employee.deleted_at.is_(None)).limit(1))
         assert employee_id
         return employee_id
+
+
+def first_department_id() -> str:
+    with SessionLocal() as db:
+        department_id = db.scalar(select(Department.id).where(Department.deleted_at.is_(None)).limit(1))
+        assert department_id
+        return department_id
+
+
+def first_client_id() -> str:
+    with SessionLocal() as db:
+        client_id = db.scalar(select(Client.id).where(Client.deleted_at.is_(None)).limit(1))
+        assert client_id
+        return client_id
+
+
+def first_equipment_type_id() -> str:
+    with SessionLocal() as db:
+        type_id = db.scalar(select(EquipmentType.id).where(EquipmentType.deleted_at.is_(None)).limit(1))
+        assert type_id
+        return type_id
+
+
+def first_equipment_id() -> str:
+    with SessionLocal() as db:
+        equipment_id = db.scalar(select(Equipment.id).where(Equipment.deleted_at.is_(None)).limit(1))
+        assert equipment_id
+        return equipment_id
+
+
+def first_asset_id() -> str:
+    with SessionLocal() as db:
+        asset_id = db.scalar(select(Asset.id).where(Asset.deleted_at.is_(None)).limit(1))
+        assert asset_id
+        return asset_id
+
+
+def first_driver_id() -> str:
+    with SessionLocal() as db:
+        driver_id = db.scalar(select(Driver.id).where(Driver.deleted_at.is_(None)).limit(1))
+        assert driver_id
+        return driver_id
+
+
+def first_truck_id() -> str:
+    with SessionLocal() as db:
+        truck_id = db.scalar(select(Truck.id).where(Truck.deleted_at.is_(None)).limit(1))
+        assert truck_id
+        return truck_id
+
+
+def first_approver_signatory_id() -> str:
+    with SessionLocal() as db:
+        signatory_id = db.scalar(select(TechnicalSignatory.id).where(TechnicalSignatory.can_approve.is_(True), TechnicalSignatory.deleted_at.is_(None)).limit(1))
+        assert signatory_id
+        return signatory_id

@@ -295,6 +295,31 @@ class DocumentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class MediaAttachmentOut(BaseModel):
+    id: str
+    entity_type: str
+    entity_id: str
+    title: str
+    category: str
+    caption: str | None
+    file_name: str
+    mime_type: str
+    file_size: int
+    checksum_sha256: str
+    thumbnail_available: bool = False
+    status: str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MediaAttachmentCreate(BaseModel):
+    title: str = Field(min_length=2, max_length=180)
+    category: str = Field(default="photo", min_length=2, max_length=60)
+    caption: str | None = Field(default=None, max_length=240)
+    file_name: str = Field(min_length=1, max_length=240)
+    file_data_url: str = Field(min_length=10, max_length=15_000_000)
+
+
 class AuditLogOut(BaseModel):
     id: str
     user_id: str | None

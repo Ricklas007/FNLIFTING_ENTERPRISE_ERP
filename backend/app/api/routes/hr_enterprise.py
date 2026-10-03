@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_permission
+from app.api.deps import get_current_user, require_permission
 from app.database.session import get_db
 from app.models import User
 from app.schemas.enterprise import AttendanceCreate, LeaveRequestCreate, OrgPositionCreate
@@ -11,7 +11,9 @@ router = APIRouter(prefix="/hr")
 
 
 @router.get("/employee-portal")
-def get_employee_portal(user: User = Depends(require_permission("hr.view")), db: Session = Depends(get_db)):
+def get_employee_portal(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if "*" not in user.permission_codes and not {"hr.view", "daily_reports.submit"} & user.permission_codes:
+        raise HTTPException(status_code=403, detail="Não possui permissão para consultar o portal do trabalhador")
     return employee_portal(db, user)
 
 

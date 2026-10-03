@@ -4,7 +4,8 @@ import { ClipboardCheck, Gauge, MapPin, Plus, ShieldCheck, Truck } from 'lucide-
 import { ErrorBanner, LoadingRows, PageHeader } from '@/pages/HRPages'
 import { api, ApiError } from '@/services/api'
 import type { FleetCommandCenter, FleetComplianceCenter } from '@/types'
-import { dateLabel, MetricCard } from './shared'
+import { dateLabel } from './formatters'
+import { MetricCard } from './shared'
 
 export function FleetCommandPage() {
   const [data, setData] = useState<FleetCommandCenter | null>(null)

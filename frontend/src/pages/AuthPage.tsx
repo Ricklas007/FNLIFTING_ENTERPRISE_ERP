@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { BrandLogo } from '@/components/BrandLogo'
 import { api, ApiError } from '@/services/api'
-import { useAuth } from '@/store/AuthContext'
+import { useAuth } from '@/store/useAuth'
 
 type View = 'login' | 'register' | 'forgot' | 'mfa'
 type Portal = 'staff' | 'client'

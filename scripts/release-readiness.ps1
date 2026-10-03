@@ -10,6 +10,25 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Failures = New-Object System.Collections.Generic.List[string]
 $Warnings = New-Object System.Collections.Generic.List[string]
+$RuntimeDir = Join-Path $Root ".runtime"
+$GateLockPath = Join-Path $RuntimeDir "fnlifting-gate.lock"
+
+New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
+try {
+    $GateLockStream = [System.IO.File]::Open(
+        $GateLockPath,
+        [System.IO.FileMode]::OpenOrCreate,
+        [System.IO.FileAccess]::ReadWrite,
+        [System.IO.FileShare]::None
+    )
+}
+catch {
+    throw "Outro gate de release/preflight ja esta em execucao. Aguarde terminar antes de iniciar outro processo que use o mesmo SQLite."
+}
+$GateLockStream.SetLength(0)
+$GateLockMessage = [System.Text.Encoding]::UTF8.GetBytes("release-readiness pid=$PID started=$(Get-Date -Format o)")
+$GateLockStream.Write($GateLockMessage, 0, $GateLockMessage.Length)
+$GateLockStream.Flush()
 
 function Add-Failure {
     param([string]$Message)

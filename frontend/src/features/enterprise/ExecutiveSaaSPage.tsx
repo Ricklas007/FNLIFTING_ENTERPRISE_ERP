@@ -4,7 +4,8 @@ import { Cloud, Gauge, Plus, ShieldCheck } from 'lucide-react'
 import { ErrorBanner, LoadingRows, PageHeader } from '@/pages/HRPages'
 import { api, ApiError } from '@/services/api'
 import type { ComplianceItem, ExecutiveBI, LicenseStatus } from '@/types'
-import { dateLabel, MetricCard } from './shared'
+import { dateLabel } from './formatters'
+import { MetricCard } from './shared'
 
 export function ExecutiveSaaSPage() {
   const [bi, setBi] = useState<ExecutiveBI | null>(null)

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Activity, ArrowRight, BadgeCheck, BellRing, Boxes, CalendarDays, CheckCircle2,
+  Activity, ArrowRight, BadgeCheck, BellRing, CalendarDays, CheckCircle2,
   ChevronRight, CircleAlert, ClockAlert, FileClock, Landmark, MoreHorizontal,
   PackageCheck, RefreshCw, ScanSearch, TrendingUp, Truck, Users, WalletCards,
 } from 'lucide-react'

@@ -546,6 +546,24 @@ class DocumentVersion(RecordMixin, Base):
     document: Mapped[Document] = relationship(back_populates="versions")
 
 
+class MediaAttachment(RecordMixin, Base):
+    __tablename__ = "media_attachments"
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    entity_type: Mapped[str] = mapped_column(String(40), index=True)
+    entity_id: Mapped[str] = mapped_column(String(36), index=True)
+    title: Mapped[str] = mapped_column(String(180))
+    category: Mapped[str] = mapped_column(String(60), default="photo", index=True)
+    caption: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    file_name: Mapped[str] = mapped_column(String(240))
+    file_path: Mapped[str] = mapped_column(String(500))
+    mime_type: Mapped[str] = mapped_column(String(100))
+    file_size: Mapped[int] = mapped_column(Integer)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    thumbnail_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="active", index=True)
+    uploaded_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+
 class AuditLog(RecordMixin, Base):
     __tablename__ = "audit_logs"
     company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)

@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
-  BadgeCheck, Building2, CalendarClock, Check, CheckCircle2, ChevronRight,
-  CircleAlert, ClipboardCheck, Download, Edit3, Eye, Factory, FileBadge2,
-  Gauge, HardHat, Mail, MapPin, PackageCheck, Phone, Plus, QrCode,
-  Search, Send, ShieldCheck, Stamp, Tag, Trash2, UserPlus, UserRound, Wrench, XCircle,
+  BadgeCheck, Building2, CalendarClock, Check, ClipboardCheck, Edit3, FileBadge2,
+  HardHat, Mail, MapPin, PackageCheck, Phone, Plus, Search, ShieldCheck, Trash2,
+  UserRound, Wrench,
 } from 'lucide-react'
 import { api, ApiError } from '@/services/api'
-import { useAuth } from '@/store/AuthContext'
+import { MediaAttachmentPanel } from '@/components/MediaAttachmentPanel'
+import { useAuth } from '@/store/useAuth'
 import { cn } from '@/lib/utils'
-import { ErrorBanner, hasPermission, LoadingRows, Modal, PageHeader, SubmitButton } from '@/pages/HRPages'
-import type { Certificate, Client, Employee, Equipment, EquipmentType, Inspection, OperationsSummary, TechnicalSignatory } from '@/types'
+import { hasPermission } from '@/lib/permissions'
+import { ErrorBanner, LoadingRows, Modal, PageHeader, SubmitButton } from '@/pages/HRPages'
+import type { Client, Employee, Equipment, EquipmentType, Inspection, OperationsSummary } from '@/types'
 
 const statusLabels: Record<string, string> = {
   active: 'Ativo', inactive: 'Inativo', prospect: 'Prospect', approved: 'Aprovado',
@@ -43,10 +44,10 @@ function EquipmentForm({clients,types,item,onSaved,onClose}:{clients:Client[];ty
 
 export function EquipmentPage(){
   const {user}=useAuth();const [records,setRecords]=useState<Equipment[]>([]),[clients,setClients]=useState<Client[]>([]),[types,setTypes]=useState<EquipmentType[]>([]),[editing,setEditing]=useState<Equipment|null|'new'>(null),[search,setSearch]=useState(''),[loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null);const canManage=hasPermission(user?.permissions??[],'equipment.manage'),external=user?.account_type==='external'
-  async function load(){setLoading(true);setError(null);try{const [items,equipmentTypes,clientRecords]=await Promise.all([api.equipment(),api.equipmentTypes(),canManage?api.clients():Promise.resolve([])]);setRecords(items);setTypes(equipmentTypes);setClients(clientRecords)}catch(reason){setError(reason instanceof ApiError?reason.message:'Falha ao carregar equipamentos.')}finally{setLoading(false)}}useEffect(()=>{void load()},[])
+  const load=useCallback(async()=>{setLoading(true);setError(null);try{const [items,equipmentTypes,clientRecords]=await Promise.all([api.equipment(),api.equipmentTypes(),canManage?api.clients():Promise.resolve([])]);setRecords(items);setTypes(equipmentTypes);setClients(clientRecords)}catch(reason){setError(reason instanceof ApiError?reason.message:'Falha ao carregar equipamentos.')}finally{setLoading(false)}},[canManage]);useEffect(()=>{void load()},[load])
   const filtered=records.filter(item=>`${item.name} ${item.code} ${item.serial_number} ${item.client.name}`.toLowerCase().includes(search.toLowerCase()))
   async function remove(item:Equipment){if(!window.confirm(`Arquivar ${item.name}?`))return;try{await api.deleteEquipment(item.id);await load()}catch(reason){setError(reason instanceof ApiError?reason.message:'Não foi possível arquivar.')}}
-  return <><PageHeader eyebrow={external?'Portal do cliente · Equipamentos':'Operações · Equipamentos'} title={external?'Equipamentos inspecionados':'Equipamentos'} description={external?'Consulte os equipamentos registados para a sua empresa.':'Inventário técnico, rastreabilidade e estado de conformidade.'} action={canManage&&<button className="module-primary-button" onClick={()=>setEditing('new')}><Plus/> Novo equipamento</button>}/>{error&&<ErrorBanner message={error} onRetry={load}/>}<section className="module-toolbar"><label><Search/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar código, série, cliente..." /></label><span>{filtered.length} equipamentos</span></section>{loading?<LoadingRows/>:<section className="module-panel table-panel"><div className="responsive-table"><table><thead><tr><th>Equipamento</th><th>Cliente</th><th>Identificação</th><th>Localização</th><th>Estado</th><th/></tr></thead><tbody>{filtered.map(item=><tr key={item.id}><td><div className="equipment-name"><span><Wrench/></span><p><strong>{item.name}</strong><small>{item.type.name} · {item.capacity||'Capacidade n/d'}</small></p></div></td><td><div className="stacked-cell"><strong>{item.client.name}</strong><small>NIF {item.client.nif}</small></div></td><td><div className="stacked-cell"><strong>{item.code}</strong><small>{item.serial_number||'Sem número de série'}</small></div></td><td><span className="location-cell"><MapPin/>{item.location||'Por definir'}</span></td><td><OpsStatus value={item.status}/></td><td>{canManage&&<div className="row-actions"><button onClick={()=>setEditing(item)} aria-label={`Editar ${item.name}`}><Edit3/></button><button className="danger" onClick={()=>remove(item)} aria-label={`Arquivar ${item.name}`}><Trash2/></button></div>}</td></tr>)}</tbody></table></div></section>}{editing&&<Modal wide title={editing==='new'?'Novo equipamento':'Editar equipamento'} subtitle="Identificação técnica e vínculo à empresa proprietária." onClose={()=>setEditing(null)}><EquipmentForm clients={clients} types={types} item={editing==='new'?undefined:editing} onSaved={load} onClose={()=>setEditing(null)}/></Modal>}</>
+  return <><PageHeader eyebrow={external?'Portal do cliente · Equipamentos':'Operações · Equipamentos'} title={external?'Equipamentos inspecionados':'Equipamentos'} description={external?'Consulte os equipamentos registados para a sua empresa.':'Inventário técnico, rastreabilidade e estado de conformidade.'} action={canManage&&<button className="module-primary-button" onClick={()=>setEditing('new')}><Plus/> Novo equipamento</button>}/>{error&&<ErrorBanner message={error} onRetry={load}/>}<section className="module-toolbar"><label><Search/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar código, série, cliente..." /></label><span>{filtered.length} equipamentos</span></section>{loading?<LoadingRows/>:<section className="module-panel table-panel"><div className="responsive-table"><table><thead><tr><th>Equipamento</th><th>Cliente</th><th>Identificação</th><th>Localização</th><th>Estado</th><th/></tr></thead><tbody>{filtered.map(item=><tr key={item.id}><td><div className="equipment-name"><span><Wrench/></span><p><strong>{item.name}</strong><small>{item.type.name} · {item.capacity||'Capacidade n/d'}</small></p></div></td><td><div className="stacked-cell"><strong>{item.client.name}</strong><small>NIF {item.client.nif}</small></div></td><td><div className="stacked-cell"><strong>{item.code}</strong><small>{item.serial_number||'Sem número de série'}</small></div></td><td><span className="location-cell"><MapPin/>{item.location||'Por definir'}</span></td><td><OpsStatus value={item.status}/></td><td>{canManage&&<div className="row-actions"><button onClick={()=>setEditing(item)} aria-label={`Editar ${item.name}`}><Edit3/></button><button className="danger" onClick={()=>remove(item)} aria-label={`Arquivar ${item.name}`}><Trash2/></button></div>}</td></tr>)}</tbody></table></div></section>}{editing&&<Modal wide title={editing==='new'?'Novo equipamento':'Editar equipamento'} subtitle="Identificação técnica e vínculo à empresa proprietária." onClose={()=>setEditing(null)}><EquipmentForm clients={clients} types={types} item={editing==='new'?undefined:editing} onSaved={load} onClose={()=>setEditing(null)}/>{editing!=='new'&&<MediaAttachmentPanel entityType="equipment" entityId={editing.id} canManage={canManage} title="Fotos técnicas e anexos do equipamento" />}</Modal>}</>
 }
 
 const defaultChecklist=[['VIS','Inspeção visual geral','Sem danos visíveis'],['IDN','Identificação e marcação','Legível e rastreável'],['FUN','Teste funcional','Operação normal'],['SAF','Dispositivos de segurança','Operacionais']]
@@ -58,89 +59,7 @@ function InspectionForm({equipment,inspectors,onSaved,onClose}:{equipment:Equipm
 }
 
 export function InspectionsPage(){
-  const {user}=useAuth();const [records,setRecords]=useState<Inspection[]>([]),[equipment,setEquipment]=useState<Equipment[]>([]),[inspectors,setInspectors]=useState<Employee[]>([]),[formOpen,setFormOpen]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null);const canManage=hasPermission(user?.permissions??[],'inspections.manage')
-  async function load(){setLoading(true);setError(null);try{const peoplePromise=hasPermission(user?.permissions??[],'employees.view')?api.employees():api.myEmployee().then(item=>[item]);const [items,equipmentRecords,people]=await Promise.all([api.inspections(),api.equipment(),peoplePromise]);setRecords(items);setEquipment(equipmentRecords);setInspectors(people)}catch(reason){setError(reason instanceof ApiError?reason.message:'Falha ao carregar inspeções.')}finally{setLoading(false)}}useEffect(()=>{void load()},[])
+  const {user}=useAuth();const [records,setRecords]=useState<Inspection[]>([]),[equipment,setEquipment]=useState<Equipment[]>([]),[inspectors,setInspectors]=useState<Employee[]>([]),[formOpen,setFormOpen]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null);const canManage=hasPermission(user?.permissions??[],'inspections.manage'),canViewEmployees=hasPermission(user?.permissions??[],'employees.view')
+  const load=useCallback(async()=>{setLoading(true);setError(null);try{const peoplePromise=canViewEmployees?api.employees():api.myEmployee().then(item=>[item]);const [items,equipmentRecords,people]=await Promise.all([api.inspections(),api.equipment(),peoplePromise]);setRecords(items);setEquipment(equipmentRecords);setInspectors(people)}catch(reason){setError(reason instanceof ApiError?reason.message:'Falha ao carregar inspeções.')}finally{setLoading(false)}},[canViewEmployees]);useEffect(()=>{void load()},[load])
   return <><PageHeader eyebrow="Operações · Inspeções" title="Inspeções técnicas" description="Checklists, conclusões e rastreabilidade por equipamento." action={canManage&&<button className="module-primary-button" onClick={()=>setFormOpen(true)}><Plus/> Nova inspeção</button>}/>{error&&<ErrorBanner message={error} onRetry={load}/>} {loading?<LoadingRows/>:<section className="inspections-grid">{records.map(item=>{const passed=item.checklist_items.filter(row=>row.result==='pass').length;return <article className="inspection-card" key={item.id}><header><div><span>{item.inspection_no}</span><small>{new Date(`${item.inspection_date}T00:00:00`).toLocaleDateString('pt-AO')}</small></div><OpsStatus value={item.status}/></header><h2>{item.equipment.name}</h2><p>{item.client.name} · {item.equipment.code}</p><div className="inspection-progress"><span><i style={{width:`${item.checklist_items.length?passed/item.checklist_items.length*100:0}%`}}/></span><small>{passed}/{item.checklist_items.length} itens conformes</small></div><footer><span><HardHat/>{item.inspector?.full_name||'Equipa técnica'}</span><span><MapPin/>{item.location||'Local n/d'}</span><span><CalendarClock/>Próxima: {item.next_inspection_date?new Date(`${item.next_inspection_date}T00:00:00`).toLocaleDateString('pt-AO'):'n/d'}</span></footer></article>})}</section>}{formOpen&&<Modal wide title="Nova inspeção técnica" subtitle="Preencha o checklist e a conclusão antes de emitir o certificado." onClose={()=>setFormOpen(false)}><InspectionForm equipment={equipment} inspectors={inspectors} onSaved={load} onClose={()=>setFormOpen(false)}/></Modal>}</>
-}
-
-async function imageDataUrl(value: FormDataEntryValue | null) {
-  if (!(value instanceof File) || !value.size) return undefined
-  return await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(new Error('Não foi possível ler a imagem.'))
-    reader.readAsDataURL(value)
-  })
-}
-
-function SignatoryManager({ records, employees, onSaved, onClose }: { records: TechnicalSignatory[]; employees: Employee[]; onSaved: () => Promise<void>; onClose: () => void }) {
-  const [selectedId, setSelectedId] = useState<string>('new')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const selected = records.find(item => item.id === selectedId)
-  const availableEmployees = employees.filter(employee => !records.some(record => record.employee_id === employee.id))
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError(null)
-    const data = new FormData(event.currentTarget)
-    try {
-      const signature = await imageDataUrl(data.get('signature_file'))
-      const stamp = await imageDataUrl(data.get('stamp_file'))
-      const payload: Record<string, unknown> = {
-        inspector_code: String(data.get('inspector_code')),
-        qualifications: String(data.get('qualifications')),
-        employer_name: String(data.get('employer_name') || 'FNLIFTING ANGOLA'),
-        employer_address: String(data.get('employer_address') || '') || null,
-        can_inspect: data.get('can_inspect') === 'on',
-        can_approve: data.get('can_approve') === 'on',
-        status: String(data.get('status')),
-      }
-      if (signature) payload.signature_data_url = signature
-      if (stamp) payload.stamp_data_url = stamp
-      if (selected) await api.updateSignatory(selected.id, payload)
-      else {
-        payload.employee_id = String(data.get('employee_id'))
-        await api.createSignatory(payload)
-      }
-      await onSaved(); setSelectedId('new')
-    } catch (reason) {
-      setError(reason instanceof ApiError ? reason.message : reason instanceof Error ? reason.message : 'Não foi possível guardar o perfil técnico.')
-    } finally { setBusy(false) }
-  }
-
-  return <div className="signatory-manager">
-    <aside className="signatory-list">
-      <button className={selectedId === 'new' ? 'active' : ''} onClick={() => setSelectedId('new')}><UserPlus /> Registar outro inspetor</button>
-      {records.map(item => <button key={item.id} className={selectedId === item.id ? 'active' : ''} onClick={() => setSelectedId(item.id)}>
-        <span><strong>{item.employee.full_name}</strong><small>{item.inspector_code} · {item.can_approve ? 'Aprovador' : 'Inspetor'}</small></span>
-        <i className={item.signature_available && item.stamp_available ? 'ready' : ''}>{item.signature_available && item.stamp_available ? 'Pronto' : 'Incompleto'}</i>
-      </button>)}
-    </aside>
-    <form className="module-form signatory-form" key={selectedId} onSubmit={submit}>
-      {error && <ErrorBanner message={error} />}
-      {!selected && <label><span>Trabalhador</span><select name="employee_id" required defaultValue=""> <option value="" disabled>Selecione um trabalhador</option>{availableEmployees.map(item => <option key={item.id} value={item.id}>{item.full_name} · {item.job_title}</option>)}</select></label>}
-      {selected && <div className="certificate-rule"><HardHat /><p><strong>{selected.employee.full_name}</strong><span>{selected.employee.job_title}</span></p></div>}
-      <div className="module-form-grid two">
-        <label><span>Código / iniciais</span><input name="inspector_code" required defaultValue={selected?.inspector_code || ''} placeholder="Ex.: PO" /></label>
-        <label><span>Estado</span><select name="status" defaultValue={selected?.status || 'active'}><option value="active">Ativo</option><option value="inactive">Inativo</option></select></label>
-        <label className="span-two"><span>Qualificações</span><textarea name="qualifications" rows={3} required defaultValue={selected?.qualifications || ''} placeholder="Certificações, níveis e competências técnicas" /></label>
-        <label><span>Entidade empregadora</span><input name="employer_name" defaultValue={selected?.employer_name || 'FNLIFTING ANGOLA'} /></label>
-        <label><span>Endereço da entidade</span><input name="employer_address" defaultValue={selected?.employer_address || ''} /></label>
-        <label><span>Imagem da assinatura</span><input name="signature_file" type="file" accept="image/png,image/jpeg" required={!selected?.signature_available} /><small>PNG/JPEG até 2,5 MB</small></label>
-        <label><span>Imagem do carimbo</span><input name="stamp_file" type="file" accept="image/png,image/jpeg" required={!selected?.stamp_available} /><small>PNG/JPEG até 2,5 MB</small></label>
-      </div>
-      <div className="signatory-permissions"><label><input name="can_inspect" type="checkbox" defaultChecked={selected?.can_inspect ?? true} /> Pode assinar inspeções</label><label><input name="can_approve" type="checkbox" defaultChecked={selected?.can_approve ?? false} /> Pode autenticar certificados</label></div>
-      <div className="module-form-actions"><button type="button" className="module-secondary-button" onClick={onClose}>Fechar</button><SubmitButton busy={busy}><Stamp /> Guardar assinatura e carimbo</SubmitButton></div>
-    </form>
-  </div>
-}
-
-export function LegacyCertificatesPage(){
-  const {user}=useAuth();const [records,setRecords]=useState<Certificate[]>([]),[inspections,setInspections]=useState<Inspection[]>([]),[formOpen,setFormOpen]=useState(false),[busyId,setBusyId]=useState<string|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null);const canManage=hasPermission(user?.permissions??[],'certificates.manage'),external=user?.account_type==='external'
-  async function load(){setLoading(true);setError(null);try{const [certs,inspectionRecords]=await Promise.all([api.certificates(),canManage?api.inspections():Promise.resolve([])]);setRecords(certs);setInspections(inspectionRecords)}catch(reason){setError(reason instanceof ApiError?reason.message:'Falha ao carregar certificados.')}finally{setLoading(false)}}useEffect(()=>{void load()},[])
-  const available=inspections.filter(item=>item.status==='approved'&&!records.some(cert=>cert.inspection_id===item.id))
-  async function create(event:FormEvent<HTMLFormElement>){event.preventDefault();const data=new FormData(event.currentTarget);setBusyId('create');setError(null);try{await api.createCertificate(String(data.get('inspection_id')));setFormOpen(false);await load()}catch(reason){setError(reason instanceof ApiError?reason.message:'Não foi possível criar o certificado.')}finally{setBusyId(null)}}
-  async function issue(item:Certificate){setBusyId(item.id);setError(null);try{await api.issueCertificate(item.id);await load()}catch(reason){setError(reason instanceof ApiError?reason.message:'Não foi possível emitir o certificado.')}finally{setBusyId(null)}}
-  async function downloadPdf(item:Certificate){setBusyId(item.id);setError(null);try{await api.downloadCertificate(item.id,item.certificate_no)}catch(reason){setError(reason instanceof ApiError?reason.message:'Não foi possível descarregar o PDF.')}finally{setBusyId(null)}}
-  return <><PageHeader eyebrow={external?'Portal do cliente · Documentos':'Operações · Certificados'} title={external?'Certificados da empresa':'Certificados técnicos'} description={external?'Consulte a validade e descarregue os certificados emitidos para a sua empresa.':'Emissão controlada, QR de autenticidade e PDF técnico local.'} action={canManage&&<button className="module-primary-button" onClick={()=>setFormOpen(true)} disabled={!available.length}><Plus/> Novo certificado</button>}/>{error&&<ErrorBanner message={error} onRetry={load}/>} {loading?<LoadingRows/>:<section className="certificates-grid">{records.map(item=>{const days=Math.ceil((new Date(item.expires_at).getTime()-Date.now())/86400000);return <article className="certificate-card" key={item.id}><div className="certificate-ribbon"><FileBadge2/></div><header><OpsStatus value={item.status}/><span>R{String(item.revision).padStart(2,'0')}</span></header><small>{item.document_type}</small><h2>{item.certificate_no}</h2><p><strong>{item.equipment.name}</strong><span>{item.client.name} · {item.equipment.code}</span></p><div className="certificate-dates"><span><small>Emitido</small><strong>{new Date(`${item.issued_at}T00:00:00`).toLocaleDateString('pt-AO')}</strong></span><span><small>Válido até</small><strong>{new Date(`${item.expires_at}T00:00:00`).toLocaleDateString('pt-AO')}</strong></span></div><div className={cn('validity-bar',days<45&&'warning')}><i/><span>{days>0?`${days} dias restantes`:'Expirado'}</span></div><footer><span><QrCode/> Verificação QR</span>{item.status==='draft'&&canManage?<button onClick={()=>issue(item)} disabled={busyId===item.id}><Send/> Emitir</button>:item.status==='issued'?<button onClick={()=>downloadPdf(item)} disabled={busyId===item.id}><Download/> PDF</button>:null}</footer></article>})}</section>}{formOpen&&<Modal title="Novo certificado" subtitle="Somente inspeções aprovadas e ainda não certificadas são elegíveis." onClose={()=>setFormOpen(false)}><form className="module-form" onSubmit={create}><label><span>Inspeção aprovada</span><select name="inspection_id" required>{available.map(item=><option key={item.id} value={item.id}>{item.inspection_no} · {item.equipment.name} · {item.client.name}</option>)}</select></label><div className="certificate-rule"><ShieldCheck/><p><strong>Validação automática</strong><span>Número, validade e QR serão gerados pelo backend.</span></p></div><div className="module-form-actions"><button type="button" className="module-secondary-button" onClick={()=>setFormOpen(false)}>Cancelar</button><SubmitButton busy={busyId==='create'}><FileBadge2/> Criar rascunho</SubmitButton></div></form></Modal>}</>
 }
