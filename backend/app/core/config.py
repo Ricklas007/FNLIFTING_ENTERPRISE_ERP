@@ -54,7 +54,7 @@ for _directory in (
 
 class Settings(BaseModel):
     app_name: str = "FNLIFTING Enterprise ERP"
-    app_version: str = "0.12.1"
+    app_version: str = "0.12.2"
     environment: str = "development"
     debug: bool = True
     api_v1_prefix: str = "/api/v1"

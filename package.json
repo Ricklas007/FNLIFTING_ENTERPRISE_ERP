@@ -1,6 +1,6 @@
 {
   "name": "fnlifting-enterprise-erp",
-  "version": "0.12.1",
+  "version": "0.12.2",
   "private": true,
   "description": "FNLIFTING Enterprise ERP desktop and mobile packaging",
   "main": "desktop/main.js",

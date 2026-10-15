@@ -46,7 +46,7 @@ try {
         --onedir `
         --name FNLiftingBackend `
         --distpath backend-dist `
-        --workpath .runtime\pyinstaller-work `
+        --workpath .runtime\pyinstaller-work-pilot `
         --specpath .runtime\pyinstaller-spec `
         --add-data $AlembicData `
         --add-data $PdfAssetData `
