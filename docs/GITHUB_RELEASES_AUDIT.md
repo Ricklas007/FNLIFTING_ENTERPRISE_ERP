@@ -6,4 +6,4 @@ Artefactos locais válidos da release piloto 0.12.2:
 - APK debug: `android/app/build/outputs/apk/debug/app-debug.apk`
 - Checksums: `docs/PILOT_ARTIFACT_CHECKSUMS.md`
 
-Não foi criada nem alterada uma GitHub Release nesta execução porque `gh`, `git fetch` e `git ls-remote` não concluíram. Publicar sem confirmar a tag/commit remoto violaria o requisito de integridade. Estado: `RELEASE_PUBLICATION_BLOCKED_EXTERNAL`.
+O código e a tag `v0.12.2-pilot` foram publicados e confirmados remotamente em `bb8eb4c`. Ainda não existe confirmação de uma GitHub Release com assets porque o GitHub CLI não está instalado nesta máquina. Estado: `RELEASE_ASSETS_PENDING`.

@@ -2,9 +2,9 @@
 
 ## Resultado atual
 
-`PARTIAL` / `REMOTE_VERIFICATION_BLOCKED`.
+`SOURCE_PUSHED_RELEASE_PENDING`.
 
-O projeto local está limpo e o commit `47f973b` contém a release piloto 0.12.2 e a documentação. O clone conhece `origin/main` em `4c358e2`, portanto existe um commit local legítimo pendente de publicação. Nenhum push foi executado porque o transporte GitHub e o GitHub CLI ficaram sem resposta.
+O commit `bb8eb4c` contém a release piloto 0.12.2 e a documentação de sincronização. O push normal foi executado com sucesso e a consulta `git ls-remote` confirmou `origin/main = bb8eb4c`. A tag anotada `v0.12.2-pilot` também foi enviada.
 
 ## Segurança
 
@@ -15,4 +15,4 @@ O projeto local está limpo e o commit `47f973b` contém a release piloto 0.12.2
 
 ## Próxima ação operacional
 
-Executar com conectividade e autenticação GitHub válidas: `gh auth status`, `git fetch --all --tags --prune`, comparar commits, fazer push normal de `main`, criar pre-release 0.12.2 com os dois artefactos e verificar hashes por API.
+Criar a GitHub pre-release 0.12.2 com o instalador Windows, APK debug e checksums. O GitHub CLI não está instalado nesta máquina (`where gh` não encontrou o executável), portanto a publicação dos assets requer GitHub CLI/API autenticado ou a interface web. O código e a tag já estão sincronizados.
